@@ -10,27 +10,19 @@ from dataclasses import dataclass, field
 class FeishuConfig:
     app_id: str = ""
     app_secret: str = ""
-    app_token: str = ""
-    table_id: str = ""
+    wiki_space_name: str = "SessionConflux 对话库"  # Feishu wiki space name
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.app_id and self.app_secret and self.app_token and self.table_id)
+        return bool(self.app_id and self.app_secret)
 
 
 @dataclass
 class AgentConfig:
+    name: str = ""
     enabled: bool = True
     path: str = ""  # Empty means default path
-
-    @property
-    def effective_path(self) -> str:
-        return self.path if self.path else self.default_path
-
-    @property
-    def default_path(self) -> str:
-        home = os.path.expanduser("~")
-        return self._default_path_map.get(self._key, "")
+    skip_tool_calls: bool = True  # Skip [工具调用: xxx] messages to reduce record count
 
     _default_path_map: dict = field(default_factory=dict, repr=False)
 
@@ -43,8 +35,8 @@ class AgentConfig:
         }
 
     @property
-    def _key(self) -> str:
-        return ""
+    def effective_path(self) -> str:
+        return self.path if self.path else self._default_path_map.get(self.name, "")
 
 
 @dataclass
@@ -78,16 +70,17 @@ def load_config(path: str) -> Config:
     feishu = FeishuConfig(
         app_id=feishu_data.get("app_id", ""),
         app_secret=feishu_data.get("app_secret", ""),
-        app_token=feishu_data.get("app_token", ""),
-        table_id=feishu_data.get("table_id", ""),
+        wiki_space_name=feishu_data.get("wiki_space_name", "SessionConflux 对话库"),
     )
 
     agents_data = data.get("agents", {})
     agents = {}
     for name, agent_conf in agents_data.items():
         agents[name] = AgentConfig(
+            name=name,
             enabled=agent_conf.get("enabled", True),
             path=agent_conf.get("path", ""),
+            skip_tool_calls=agent_conf.get("skip_tool_calls", True),
         )
 
     sync_data = data.get("sync", {})

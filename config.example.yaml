@@ -1,15 +1,14 @@
 # Conflux Configuration
 
 # === Identity ===
-# How this machine identifies itself in Feishu Bitable
+# How this machine identifies itself in Feishu Wiki folder hierarchy
 hostname: ""  # Auto-detected if empty, or set custom like "home-mac", "work-laptop"
 
 # === Feishu ===
 feishu:
   app_id: ""
   app_secret: ""
-  app_token: ""   # From bitable URL: feishu.cn/base/{app_token}
-  table_id: ""    # The table ID within the bitable
+  wiki_space_name: "SessionConflux 对话库"  # Wiki space name (created manually in Feishu)
 
 # === Agents ===
 # Enable/disable agents and override default paths if needed
@@ -18,16 +17,20 @@ agents:
     enabled: true
     # Default: ~/.workbuddy/projects/
     path: ""
-  
+    # Skip tool call messages to reduce record count
+    skip_tool_calls: true
+
   codex:
     enabled: true
     # Default: ~/.codex/sessions/
     path: ""
-  
+    skip_tool_calls: true
+
   claude:
     enabled: false
     # Default: ~/.claude/projects/
     path: ""
+    skip_tool_calls: true
 
 # === Sync ===
 sync:
