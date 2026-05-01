@@ -208,15 +208,27 @@ class FeishuWikiClient:
         return node_token, doc_token
 
     def _append_blocks(self, doc_token: str, blocks: list[dict]):
-        """Append content blocks to a document."""
+        """Append content blocks to a document.
+
+        The Feishu API limits each request to 50 blocks, so large
+        payloads are automatically chunked.
+        """
         target_block = doc_token
-        result = self._post(
-            f"/docx/v1/documents/{doc_token}/blocks/{target_block}/children",
-            {"children": blocks},
-        )
-        # If the API returns items, use that count; otherwise assume all were added
-        added = len(result.get("items", blocks))
-        logger.debug(f"Appended {added} blocks to doc {doc_token[:12]}...")
+        total = len(blocks)
+        added = 0
+
+        for i in range(0, total, 50):
+            chunk = blocks[i : i + 50]
+            result = self._post(
+                f"/docx/v1/documents/{doc_token}/blocks/{target_block}/children",
+                {"children": chunk},
+            )
+            added += len(result.get("items", chunk))
+
+        if total:
+            logger.debug(
+                f"Appended {added}/{total} blocks to doc {doc_token[:12]}..."
+            )
         return added
 
     # ── Public sync method ────────────────────────────────────────────
