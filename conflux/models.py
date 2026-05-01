@@ -25,43 +25,62 @@ class UnifiedMessage:
         raw = f"{self.session_id}:{self.message_index}:{self.content[:100]}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
-    def to_block_dict(self) -> dict:
-        """Convert to Feishu Docx block dict for a single message."""
+    def to_block_dict(self) -> list:
+        """Convert to Feishu Docx block dicts for a single message.
+
+        Uses text blocks (block_type=2) with bold headers for safety
+        and reliability across all Feishu Docx API versions.
+        """
         role_label = "👤 用户" if self.role == "user" else "🤖 助手"
         time_str = self.timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
         blocks = []
 
-        # Message header with role + timestamp
+        # Message header with role + timestamp (bold text)
         header_text = f"{role_label}  |  {time_str}  |  #{self.message_index}"
         blocks.append({
-            "block_type": 3,  # Heading2
-            "heading2": {
-                "elements": [{"text_run": {"content": header_text}}],
+            "block_type": 2,
+            "text": {
+                "elements": [{
+                    "text_run": {
+                        "content": header_text,
+                        "text_element_style": {"bold": True},
+                    }
+                }],
             },
         })
 
         # Message content
-        content = self.content
-        # Detect code blocks
+        content = self.content.strip()
+        if not content:
+            return blocks
+
+        # Split content into sections (code blocks vs regular text)
         parts = re.split(r"(```[\s\S]*?```)", content)
         for part in parts:
+            if not part.strip():
+                continue
             if part.startswith("```") and part.endswith("```"):
-                # Code block
-                lines = part.strip("`").strip("\n").split("\n")
-                lang = lines[0].strip() if lines else ""
-                code = "\n".join(lines[1:]) if lang and len(lines) > 1 else "\n".join(lines)
+                # Code block — use text block with inline code style
+                inner = part.strip("`").strip("\n")
+                # Remove language tag from first line
+                lines = inner.split("\n")
+                code_text = "\n".join(lines[1:]) if len(lines) > 1 else inner
                 blocks.append({
-                    "block_type": 16,  # Code
-                    "code": {
-                        "elements": [{"text_run": {"content": code.strip()}}],
-                        "style": {"language": 0, "wrap": True},
+                    "block_type": 2,
+                    "text": {
+                        "elements": [{
+                            "text_run": {
+                                "content": code_text.strip(),
+                                "text_element_style": {"inline_code": True},
+                            }
+                        }],
                     },
                 })
-            elif part.strip():
-                # Regular text
+            else:
+                # Regular text block
                 blocks.append({
-                    "block_type": 2,  # Text
+                    "block_type": 2,
                     "text": {
                         "elements": [{"text_run": {"content": part.strip()}}],
                     },

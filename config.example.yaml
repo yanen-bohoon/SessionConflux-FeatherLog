@@ -8,7 +8,7 @@ hostname: ""  # Auto-detected if empty, or set custom like "home-mac", "work-lap
 feishu:
   app_id: ""
   app_secret: ""
-  wiki_space_name: "SessionConflux 对话库"  # Wiki space name (created manually in Feishu)
+  wiki_space_name: "SessionConflux"  # Wiki space name (created manually in Feishu)
 
 # === Agents ===
 # Enable/disable agents and override default paths if needed

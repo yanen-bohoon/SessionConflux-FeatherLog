@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 class FeishuConfig:
     app_id: str = ""
     app_secret: str = ""
-    wiki_space_name: str = "SessionConflux 对话库"  # Feishu wiki space name
+    wiki_space_name: str = "SessionConflux"  # Feishu wiki space name
+    wiki_space_id: str = ""                  # Resolved space ID (optional, auto-resolved)
+    wiki_token: str = ""                     # Any page token in the wiki space (for resolving)
 
     @property
     def is_configured(self) -> bool:
@@ -70,7 +72,9 @@ def load_config(path: str) -> Config:
     feishu = FeishuConfig(
         app_id=feishu_data.get("app_id", ""),
         app_secret=feishu_data.get("app_secret", ""),
-        wiki_space_name=feishu_data.get("wiki_space_name", "SessionConflux 对话库"),
+        wiki_space_name=feishu_data.get("wiki_space_name", "SessionConflux"),
+        wiki_space_id=feishu_data.get("wiki_space_id", ""),
+        wiki_token=feishu_data.get("wiki_token", ""),
     )
 
     agents_data = data.get("agents", {})

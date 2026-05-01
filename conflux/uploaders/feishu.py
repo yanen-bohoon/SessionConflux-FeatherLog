@@ -2,6 +2,9 @@
 
 Uploads session records as structured documents in a Feishu Wiki space,
 organised as Computer → Agent → Session Documents.
+
+Uses tree-based hierarchy: container pages (computer/agent) can hold
+child pages. All nodes use obj_type="docx".
 """
 
 import logging
@@ -24,10 +27,12 @@ class FeishuWikiClient:
         self._access_token: str | None = None
         self._token_expires_at: float = 0
         self._client = httpx.Client(timeout=30)
-        # Cache for folder node tokens: {(parent_token, name): node_token}
-        self._folder_cache: dict[tuple[str, str], str] = {}
+
+        # Resolved and cached during sync
         self._space_id: str | None = None
         self._root_token: str | None = None
+        # {(parent_token, name): node_token}
+        self._page_cache: dict[tuple[str, str], str] = {}
 
     # ── Auth ──────────────────────────────────────────────────────────
 
@@ -52,7 +57,7 @@ class FeishuWikiClient:
         self._token_expires_at = time.time() + data.get("expire", 7200) - 300
         return self._access_token
 
-    # ── Request helpers ───────────────────────────────────────────────
+    # ── Low-level HTTP helpers ────────────────────────────────────────
 
     def _get(self, path: str, params: dict | None = None) -> dict:
         token = self._get_tenant_token()
@@ -61,29 +66,33 @@ class FeishuWikiClient:
             headers={"Authorization": f"Bearer {token}"},
             params=params,
         )
+        # raise_for_status first, then check business code
         resp.raise_for_status()
         data = resp.json()
-        if data.get("code") != 0:
-            raise RuntimeError(f"API error [{path}]: {data}")
+        code = data.get("code")
+        if code not in (0, None):
+            raise RuntimeError(f"API error [{path}]: code={code} msg={data.get('msg')}")
         return data.get("data", {})
 
     def _post(self, path: str, body: dict) -> dict:
         token = self._get_tenant_token()
         resp = self._client.post(
             f"{self.BASE_URL}{path}",
-            headers={"Authorization": f"Bearer {token}",
-                      "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
             content=json.dumps(body),
         )
         resp.raise_for_status()
         data = resp.json()
-        if data.get("code") != 0:
-            raise RuntimeError(f"API error [{path}]: {data}")
+        code = data.get("code")
+        if code not in (0, None):
+            raise RuntimeError(f"API error [{path}]: code={code} msg={data.get('msg')}")
         return data.get("data", {})
 
     def _retry_call(self, fn, max_retries: int = 3,
                     initial_delay: float = 1.0):
-        """Call fn with retries and exponential backoff."""
         delay = initial_delay
         for attempt in range(max_retries):
             try:
@@ -93,85 +102,100 @@ class FeishuWikiClient:
                 if attempt < max_retries - 1:
                     time.sleep(delay)
                     delay *= 2
-                    self._access_token = None  # Force token refresh
+                    self._access_token = None
                 else:
                     raise
 
-    # ── Wiki space ────────────────────────────────────────────────────
+    # ── Space resolution ──────────────────────────────────────────────
 
-    def _ensure_space(self):
-        """Find the wiki space by name and cache its id and root token."""
-        if self._space_id:
-            return
+    def resolve_space(self, space_id: str, root_token: str | None = None):
+        """Set the wiki space ID directly (avoids listing spaces).
 
-        data = self._get("/wiki/v2/spaces", {"page_size": 50})
-        spaces = data.get("items", [])
+        Args:
+            space_id: The wiki space ID.
+            root_token: A page token to use as root parent for the tree.
+                         If None, the home page must be resolved separately.
+        """
+        self._space_id = space_id
+        if root_token:
+            self._root_token = root_token
+        logger.info(f"Using wiki space_id={space_id}")
 
-        target = self.config.wiki_space_name
-        for space in spaces:
-            if space.get("name") == target:
-                self._space_id = space["space_id"]
-                break
-        else:
+    def resolve_space_from_token(self, wiki_token: str) -> str:
+        """Resolve space_id and root parent token from any page token.
+
+        The root parent is the existing wiki page (usually the home page)
+        under which new top-level containers are created.
+        Uses wiki/v2/spaces/get_node which works with minimal permissions.
+        """
+        data = self._get("/wiki/v2/spaces/get_node", {"token": wiki_token})
+        node = data.get("node", {})
+        self._space_id = node["space_id"]
+        self._root_token = node["node_token"]
+        logger.info(
+            f"Resolved space_id={self._space_id}, root={self._root_token[:12]}..."
+        )
+        return self._space_id
+
+    def _space(self) -> str:
+        if not self._space_id:
             raise RuntimeError(
-                f"Wiki space '{target}' not found. "
-                f"Available: {[s.get('name') for s in spaces]}"
+                "Wiki space not resolved. Call resolve_space() or "
+                "resolve_space_from_token() first."
             )
+        return self._space_id
 
-        # Get space root node token from settings
-        settings = self._get(f"/wiki/v2/spaces/{self._space_id}/setting")
-        self._root_token = settings.get("node_token") or self._space_id
-        logger.info(f"Wiki space '{target}' (id={self._space_id}) ready")
+    # ── Container (folder) management ─────────────────────────────────
 
-    # ── Folder management ─────────────────────────────────────────────
+    def _ensure_container(self, parent_token: str, name: str) -> str:
+        """Find or create a page container under parent_token.
 
-    def _ensure_folder(self, parent_token: str, name: str) -> str:
-        """Get or create a folder under parent_token. Returns node_token."""
+        All nodes in Feishu Wiki are 'docx' pages; those with children
+        act as folders in the tree view. Returns node_token.
+        """
         cache_key = (parent_token, name)
-        cached = self._folder_cache.get(cache_key)
+        cached = self._page_cache.get(cache_key)
         if cached:
             return cached
 
-        # Check if folder already exists
+        space_id = self._space()
+        # Check existing children
         data = self._get(
-            "/wiki/v2/spaces/{}/nodes".format(self._space_id),
+            f"/wiki/v2/spaces/{space_id}/nodes",
             {"page_size": 50, "parent_node_token": parent_token},
         )
         for item in data.get("items", []):
-            if (item.get("obj_type") == 1  # Folder type
-                    and item.get("title") == name):
+            if item.get("title") == name and item.get("obj_type") == "docx":
                 node_token = item["node_token"]
-                self._folder_cache[cache_key] = node_token
-                logger.info(f"Found existing folder '{name}' ({node_token[:12]}...)")
+                self._page_cache[cache_key] = node_token
+                logger.info(f"Found container '{name}' ({node_token[:12]}...)")
                 return node_token
 
-        # Create folder
+        # Create new page as container
         result = self._post(
-            "/wiki/v2/spaces/{}/nodes".format(self._space_id),
+            f"/wiki/v2/spaces/{space_id}/nodes",
             {
-                "obj_type": 1,
+                "obj_type": "docx",
                 "parent_node_token": parent_token,
                 "node_type": "origin",
                 "title": name,
             },
         )
-        node_token = result["node"]["node_token"]
-        self._folder_cache[cache_key] = node_token
-        logger.info(f"Created folder '{name}' ({node_token[:12]}...)")
+        node = result["node"]
+        node_token = node["node_token"]
+        self._page_cache[cache_key] = node_token
+        logger.info(f"Created container '{name}' ({node_token[:12]}...)")
         return node_token
 
     # ── Session document ──────────────────────────────────────────────
 
     def _create_document(self, parent_token: str, title: str) -> tuple[str, str]:
-        """Create a wiki page (document). Returns (node_token, doc_token).
-
-        The node_token is the wiki node identifier. The doc_token is the
-        underlying document identifier (same as node_token in most cases).
-        """
+        """Create a wiki page (document). Returns (node_token, doc_token)."""
+        space_id = self._space()
         result = self._post(
-            "/wiki/v2/spaces/{}/nodes".format(self._space_id),
+            f"/wiki/v2/spaces/{space_id}/nodes",
             {
-                "obj_type": 2,
+                "obj_type": "docx",
                 "parent_node_token": parent_token,
                 "node_type": "origin",
                 "title": title,
@@ -183,18 +207,14 @@ class FeishuWikiClient:
         logger.info(f"Created document '{title}' ({doc_token[:12]}...)")
         return node_token, doc_token
 
-    def _append_blocks(self, doc_token: str, blocks: list[dict],
-                       block_id: str | None = None):
-        """Append content blocks to a document.
-
-        block_id defaults to the document_id (root page block).
-        """
-        target_block = block_id or doc_token
+    def _append_blocks(self, doc_token: str, blocks: list[dict]):
+        """Append content blocks to a document."""
+        target_block = doc_token
         result = self._post(
-            "/docx/v1/documents/{}/blocks/{}/children".format(
-                doc_token, target_block),
+            f"/docx/v1/documents/{doc_token}/blocks/{target_block}/children",
             {"children": blocks},
         )
+        # If the API returns items, use that count; otherwise assume all were added
         added = len(result.get("items", blocks))
         logger.debug(f"Appended {added} blocks to doc {doc_token[:12]}...")
         return added
@@ -208,7 +228,7 @@ class FeishuWikiClient:
                      initial_delay: float = 1.0) -> bool:
         """Upload a session's messages to Feishu Wiki.
 
-        * First call: creates a document in Computer → Agent folder
+        * First call: creates a document in Computer → Agent container
         * Subsequent calls: appends new messages to the existing document
 
         Returns True on success.
@@ -228,8 +248,8 @@ class FeishuWikiClient:
             return False
 
     def _do_sync(self, messages, session_id, agent, computer, state_cache):
-        self._ensure_space()
-
+        space_id = self._space()
+        root = self._root_token or space_id
         title = generate_session_title(messages)
         existing = state_cache.get(session_id)
 
@@ -248,18 +268,20 @@ class FeishuWikiClient:
 
             self._append_blocks(existing["doc_token"], blocks)
             state_cache.mark_appended(session_id, new_msgs[-1].message_index)
-            logger.info(f"Appended {len(new_msgs)} msgs to session {session_id[:12]}...")
+            logger.info(
+                f"Appended {len(new_msgs)} msgs to session "
+                f"{session_id[:12]}..."
+            )
         else:
             # ── Create new document ──
-            # Ensure folder hierarchy: Computer → Agent
-            root = self._ensure_root()
-            computer_folder = self._ensure_folder(root, computer)
-            agent_folder = self._ensure_folder(computer_folder, agent.capitalize())
+            # Ensure container hierarchy: Computer → Agent
+            computer_node = self._ensure_container(root, computer)
+            agent_node = self._ensure_container(
+                computer_node, agent.capitalize()
+            )
 
-            # Create the document
-            node_token, doc_token = self._create_document(agent_folder, title)
+            node_token, doc_token = self._create_document(agent_node, title)
 
-            # Add all message blocks
             all_blocks = []
             for msg in messages:
                 all_blocks.extend(msg.to_block_dict())
@@ -271,20 +293,14 @@ class FeishuWikiClient:
                 session_id, doc_token, node_token,
                 agent, computer, title, len(messages),
             )
-            logger.info(f"Created doc for session {session_id[:12]}... ({len(messages)} msgs)")
+            logger.info(
+                f"Created doc for session {session_id[:12]}... "
+                f"({len(messages)} msgs)"
+            )
 
         return True
-
-    def _ensure_root(self) -> str:
-        """Return the wiki root node token, ensuring space is resolved."""
-        self._ensure_space()
-        return self._root_token
 
     # ── Lifecycle ─────────────────────────────────────────────────────
 
     def close(self):
         self._client.close()
-
-
-# Scoped retry config helper
-_retry_defaults = {"max_retries": 3, "initial_delay": 1.0}

@@ -19,6 +19,20 @@ class Engine:
         setup_logging()
         self.state = SessionStateCache()
         self.client = FeishuWikiClient(self.config.feishu)
+        self._resolve_wiki_space()
+
+    def _resolve_wiki_space(self):
+        """Resolve the wiki space so the client is ready for writes."""
+        feishu = self.config.feishu
+        if feishu.wiki_token:
+            sid = self.client.resolve_space_from_token(feishu.wiki_token)
+            logger.info(f"Resolved wiki space_id={sid} from token")
+        elif feishu.wiki_space_id:
+            self.client.resolve_space(feishu.wiki_space_id)
+            logger.info(f"Using wiki space_id={feishu.wiki_space_id}")
+        else:
+            logger.warning("No wiki_space_id or wiki_token configured — "
+                           "will retry on first sync")
 
     def run(self):
         """Continuous sync loop."""
