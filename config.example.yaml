@@ -1,0 +1,39 @@
+# Conflux Configuration
+
+# === Identity ===
+# How this machine identifies itself in Feishu Bitable
+hostname: ""  # Auto-detected if empty, or set custom like "home-mac", "work-laptop"
+
+# === Feishu ===
+feishu:
+  app_id: ""
+  app_secret: ""
+  app_token: ""   # From bitable URL: feishu.cn/base/{app_token}
+  table_id: ""    # The table ID within the bitable
+
+# === Agents ===
+# Enable/disable agents and override default paths if needed
+agents:
+  workbuddy:
+    enabled: true
+    # Default: ~/.workbuddy/projects/
+    path: ""
+  
+  codex:
+    enabled: true
+    # Default: ~/.codex/sessions/
+    path: ""
+  
+  claude:
+    enabled: false
+    # Default: ~/.claude/projects/
+    path: ""
+
+# === Sync ===
+sync:
+  poll_interval: 10      # File polling interval in seconds
+  batch_size: 10         # Messages to accumulate before flush
+  flush_timeout: 30      # Seconds before auto-flush regardless of batch_size
+  api_batch_max: 500     # Feishu API max records per batch
+  max_retries: 5         # Max retries on API failure
+  initial_retry_delay: 1 # Base delay for exponential backoff (seconds)
