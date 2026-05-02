@@ -205,7 +205,7 @@ func ListFiles(token, folderToken string) ([]FileInfo, error) {
 					Type  string `json:"type"`
 				} `json:"files"`
 				HasMore   bool   `json:"has_more"`
-				PageToken string `json:"page_token"`
+				PageToken string `json:"next_page_token"`
 			} `json:"data"`
 		}
 		decodeErr := json.NewDecoder(resp.Body).Decode(&result)

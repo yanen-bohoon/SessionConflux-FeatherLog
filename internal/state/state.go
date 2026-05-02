@@ -11,6 +11,7 @@ import (
 // Key format: "computer/agent/session_id"
 type Entry struct {
 	MessageCount int    `json:"message_count"`
+	FileSize     int64  `json:"file_size"`
 	FileToken    string `json:"file_token"`
 	LastUploaded string `json:"last_uploaded"` // ISO 8601
 }
@@ -57,19 +58,19 @@ func (s *Store) Get(key string) (Entry, bool) {
 	return e, ok
 }
 
-// HasChanged returns true if the session has new messages (or is new).
-func (s *Store) HasChanged(key string, messageCount int) bool {
+// HasChanged returns true if the session file size differs from state (or is new).
+func (s *Store) HasChanged(key string, fileSize int64) bool {
 	e, ok := s.entries[key]
 	if !ok {
-		return messageCount > 0
+		return fileSize > 0
 	}
-	return messageCount > e.MessageCount
+	return fileSize != e.FileSize
 }
 
 // MarkUploaded records a successful upload.
-func (s *Store) MarkUploaded(key string, messageCount int, fileToken string, timestamp string) {
+func (s *Store) MarkUploaded(key string, fileSize int64, fileToken string, timestamp string) {
 	s.entries[key] = Entry{
-		MessageCount: messageCount,
+		FileSize:     fileSize,
 		FileToken:    fileToken,
 		LastUploaded: timestamp,
 	}
