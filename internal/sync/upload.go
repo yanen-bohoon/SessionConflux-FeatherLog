@@ -84,7 +84,11 @@ func baselineHasFiles(token, folderToken string) bool {
 	return false
 }
 
-type fileEntry struct{ Path, Agent, SessionID string; Size int64 }
+type fileEntry struct {
+	Path, Agent, SessionID string
+	Size                   int64
+	Mtime                  int64
+}
 
 func discoverFiles(exclude map[string]bool) []fileEntry {
 	var out []fileEntry
@@ -106,7 +110,13 @@ func discoverFiles(exclude map[string]bool) []fileEntry {
 				if strings.HasSuffix(info.Name(), ".jsonl") {
 					name := info.Name()
 					sid := name[:len(name)-6]
-					out = append(out, fileEntry{path, def.Type, sid, info.Size()})
+					out = append(out, fileEntry{
+						Path:  path,
+						Agent: def.Type,
+						SessionID: sid,
+						Size:  info.Size(),
+						Mtime: info.ModTime().UnixNano(),
+					})
 				}
 				return nil
 			})
@@ -180,7 +190,7 @@ func uploadIncremental(token, incrToken, hostname string, exclude map[string]boo
 	for _, f := range files {
 		key := fmt.Sprintf("%s/%s/%s", hostname, f.Agent, f.SessionID)
 
-		if !st.HasChanged(key, f.Size) {
+		if !st.HasChanged(key, f.Size, f.Mtime) {
 			stats.Skipped++
 			continue
 		}
@@ -218,7 +228,7 @@ func uploadIncremental(token, incrToken, hostname string, exclude map[string]boo
 			continue
 		}
 
-		st.MarkUploaded(key, f.Size, "", time.Now().UTC().Format(time.RFC3339))
+		st.MarkUploaded(key, f.Size, f.Mtime, "", time.Now().UTC().Format(time.RFC3339))
 		stats.Synced++
 		fmt.Printf("  OK: %s (%d KB)\n", key, len(data)/1024)
 	}

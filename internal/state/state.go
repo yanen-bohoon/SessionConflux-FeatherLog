@@ -7,13 +7,15 @@ import (
 	"path/filepath"
 )
 
-// Entry tracks upload state for a single session.
+// Entry tracks upload and download state for a single session.
 // Key format: "computer/agent/session_id"
 type Entry struct {
-	MessageCount int    `json:"message_count"`
-	FileSize     int64  `json:"file_size"`
-	FileToken    string `json:"file_token"`
-	LastUploaded string `json:"last_uploaded"` // ISO 8601
+	FileSize        int64  `json:"file_size"`
+	Mtime           int64  `json:"mtime"`
+	FileToken       string `json:"file_token"`
+	LastUploaded    string `json:"last_uploaded"` // ISO 8601
+	DownloadedToken string `json:"downloaded_token,omitempty"`
+	LastDownloaded  string `json:"last_downloaded,omitempty"` // ISO 8601
 }
 
 // Store manages the state.json file.
@@ -58,22 +60,41 @@ func (s *Store) Get(key string) (Entry, bool) {
 	return e, ok
 }
 
-// HasChanged returns true if the session file size differs from state (or is new).
-func (s *Store) HasChanged(key string, fileSize int64) bool {
+// HasChanged returns true if the session file size or mtime differs from state (or is new).
+func (s *Store) HasChanged(key string, fileSize, mtime int64) bool {
 	e, ok := s.entries[key]
 	if !ok {
 		return fileSize > 0
 	}
-	return fileSize != e.FileSize
+	return fileSize != e.FileSize || mtime != e.Mtime
 }
 
 // MarkUploaded records a successful upload.
-func (s *Store) MarkUploaded(key string, fileSize int64, fileToken string, timestamp string) {
-	s.entries[key] = Entry{
-		FileSize:     fileSize,
-		FileToken:    fileToken,
-		LastUploaded: timestamp,
+func (s *Store) MarkUploaded(key string, fileSize, mtime int64, fileToken string, timestamp string) {
+	e := s.entries[key]
+	e.FileSize = fileSize
+	e.Mtime = mtime
+	e.FileToken = fileToken
+	e.LastUploaded = timestamp
+	s.entries[key] = e
+}
+
+// NeedsDownload returns true if the remote file token differs from what was
+// last downloaded (or if never downloaded).
+func (s *Store) NeedsDownload(key string, fileToken string) bool {
+	e, ok := s.entries[key]
+	if !ok {
+		return true
 	}
+	return e.DownloadedToken != fileToken
+}
+
+// MarkDownloaded records a successful download.
+func (s *Store) MarkDownloaded(key string, fileToken string, timestamp string) {
+	e := s.entries[key]
+	e.DownloadedToken = fileToken
+	e.LastDownloaded = timestamp
+	s.entries[key] = e
 }
 
 // All returns all entries.

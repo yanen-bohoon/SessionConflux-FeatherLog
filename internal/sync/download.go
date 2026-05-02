@@ -5,12 +5,14 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/yanen-bohoon/session-conflux/internal/bundle"
 	"github.com/yanen-bohoon/session-conflux/internal/compress"
 	"github.com/yanen-bohoon/session-conflux/internal/config"
 	"github.com/yanen-bohoon/session-conflux/internal/feishu"
 	"github.com/yanen-bohoon/session-conflux/internal/parser"
+	"github.com/yanen-bohoon/session-conflux/internal/state"
 )
 
 type RemoteSession struct {
@@ -85,11 +87,19 @@ func ListRemoteSessions(cfg *config.Config) ([]RemoteSession, error) {
 }
 
 // DownloadAllSessions downloads from all machines: baseline bundles + incremental files.
+// Skips the local machine to avoid downloading its own sessions back.
 func DownloadAllSessions(cfg *config.Config) (int, error) {
 	token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
 	if err != nil {
 		return 0, fmt.Errorf("auth: %w", err)
 	}
+
+	st, err := state.Load()
+	if err != nil {
+		return 0, fmt.Errorf("load state: %w", err)
+	}
+
+	localHost, _ := os.Hostname()
 
 	l1 := cfg.Feishu.FolderToken
 	if l1 == "" {
@@ -101,11 +111,19 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 	}
 
 	downloaded := 0
+	now := time.Now().UTC().Format(time.RFC3339)
 
 	for _, host := range hosts {
 		if host.Type != "folder" {
 			continue
 		}
+
+		// Skip sessions from this machine — no need to download them back.
+		if host.Name == localHost {
+			fmt.Printf("Machine: %s (skipped — local)\n", host.Name)
+			continue
+		}
+
 		fmt.Printf("Machine: %s\n", host.Name)
 
 		// Find baseline and incremental folders
@@ -116,34 +134,59 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 			}
 			switch l3.Name {
 			case "baseline":
-				n := downloadBaseline(token, host.Name, l3.Token)
+				n := downloadBaseline(token, host.Name, l3.Token, st, now)
 				downloaded += n
 			case "incremental":
-				n := downloadIncremental(token, host.Name, l3.Token, cfg)
+				n := downloadIncremental(token, host.Name, l3.Token, st, now)
 				downloaded += n
 			}
 		}
 	}
+
+	st.Save()
 	return downloaded, nil
 }
 
-func downloadBaseline(token, hostname, folderToken string) int {
-	// Find bundle parts
-	allData, err := readBundleParts(token, folderToken)
+func downloadBaseline(token, hostname, folderToken string, st *state.Store, now string) int {
+	files, err := feishu.ListFiles(token, folderToken)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  WARN: list baseline: %v\n", err)
+		return 0
+	}
+
+	// Build a composite token from all parts for change detection.
+	var partTokens []string
+	for _, f := range files {
+		if f.Name == bundle.BundleFileName || strings.HasPrefix(f.Name, bundle.BundleFileName+".") {
+			partTokens = append(partTokens, f.Token)
+		}
+	}
+	if len(partTokens) == 0 {
+		return 0
+	}
+	compositeToken := strings.Join(partTokens, ",")
+	baselineKey := hostname + "/baseline"
+
+	if !st.NeedsDownload(baselineKey, compositeToken) {
+		fmt.Println("  Baseline: up to date")
+		return 0
+	}
+
+	allData, err := readBundlePartsData(token, folderToken, files)
 	if err != nil || len(allData) == 0 {
 		return 0
 	}
 
 	fmt.Printf("  Extracting baseline (%d KB)...\n", len(allData)/1024)
-	files, err := bundle.Unpack(allData)
+	entries, err := bundle.Unpack(allData)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  FAIL unpack: %v\n", err)
 		return 0
 	}
 
 	n := 0
-	for name, content := range files {
-		hostname, agent, sessionID := parseBundleEntry(name)
+	for name, content := range entries {
+		_, agent, sessionID := parseBundleEntry(name)
 		if agent == "" {
 			continue
 		}
@@ -156,17 +199,12 @@ func downloadBaseline(token, hostname, folderToken string) int {
 		}
 		n++
 	}
+	st.MarkDownloaded(baselineKey, compositeToken, now)
 	fmt.Printf("  Baseline: %d sessions\n", n)
 	return n
 }
 
-func readBundleParts(token, folderToken string) ([]byte, error) {
-	// Try single bundle first
-	files, err := feishu.ListFiles(token, folderToken)
-	if err != nil {
-		return nil, err
-	}
-
+func readBundlePartsData(token, folderToken string, files []feishu.FileInfo) ([]byte, error) {
 	// Look for bundle.tar.zst or bundle.tar.zst.partNN
 	var parts []string
 	for _, f := range files {
@@ -184,6 +222,7 @@ func readBundleParts(token, folderToken string) ([]byte, error) {
 		}
 		data, err := feishu.DownloadFile(token, ft)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: download %s: %v\n", name, err)
 			continue
 		}
 		allData = append(allData, data...)
@@ -192,20 +231,22 @@ func readBundleParts(token, folderToken string) ([]byte, error) {
 	return allData, nil
 }
 
-func downloadIncremental(token, hostname, folderToken string, cfg *config.Config) int {
+func downloadIncremental(token, hostname, folderToken string, st *state.Store, now string) int {
 	files, err := feishu.ListFiles(token, folderToken)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "  WARN: list incremental: %v\n", err)
 		return 0
 	}
 
-	n := 0
+	sessionCount := 0
+	skipped := 0
 	for _, f := range files {
 		if !strings.HasSuffix(f.Name, ".jsonl.zst") {
 			continue
 		}
 		// Parse agent/session_id.jsonl.zst
-		key := strings.TrimSuffix(f.Name, ".jsonl.zst")
-		parts := strings.SplitN(key, "/", 2)
+		nameKey := strings.TrimSuffix(f.Name, ".jsonl.zst")
+		parts := strings.SplitN(nameKey, "/", 2)
 		agent, sessionID := "", ""
 		if len(parts) >= 1 {
 			agent = parts[0]
@@ -214,12 +255,21 @@ func downloadIncremental(token, hostname, folderToken string, cfg *config.Config
 			sessionID = parts[1]
 		}
 
+		dlKey := hostname + "/" + agent + "/" + sessionID
+
+		if !st.NeedsDownload(dlKey, f.Token) {
+			skipped++
+			continue
+		}
+
 		data, err := feishu.DownloadFile(token, f.Token)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: download %s: %v\n", dlKey, err)
 			continue
 		}
 		jsonl, err := compress.Decompress(data)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: decompress %s: %v\n", dlKey, err)
 			continue
 		}
 		agentDir := findAgentDir(agent)
@@ -227,14 +277,17 @@ func downloadIncremental(token, hostname, folderToken string, cfg *config.Config
 			continue
 		}
 		if err := bundle.WriteToAgentDir(hostname, agent, sessionID, jsonl, agentDir); err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: write %s: %v\n", dlKey, err)
 			continue
 		}
-		n++
+		st.MarkDownloaded(dlKey, f.Token, now)
+		sessionCount++
 	}
-	if n > 0 {
-		fmt.Printf("  Incremental: %d sessions\n", n)
+	if sessionCount+skipped > 0 {
+		fmt.Printf("  Incremental: %d sessions (%d new, %d skipped)\n",
+			sessionCount+skipped, sessionCount, skipped)
 	}
-	return n
+	return sessionCount
 }
 
 func findFileInList(files []feishu.FileInfo, name string) string {
