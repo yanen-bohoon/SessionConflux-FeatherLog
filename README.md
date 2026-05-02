@@ -112,6 +112,10 @@ exclude = ["warp"]
 level = 3
 ```
 
+## 致谢
+
+[AgentsView](https://github.com/wesm/agentsview) — 优秀的 AI 会话本地浏览工具，本项目内置了其前端浏览端。
+
 ## License
 
 MIT
