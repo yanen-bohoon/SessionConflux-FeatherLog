@@ -11,8 +11,8 @@ import (
 
 // CreateFolder creates a folder in Feishu Drive root and returns its token.
 func CreateFolder(token, name string) (string, error) {
-    body := fmt.Sprintf(`{"name":"%s","type":"folder"}`, name)
-    req, err := http.NewRequest("POST", BaseURL+"/drive/v1/files",
+    body := fmt.Sprintf(`{"name":"%s","folder_token":""}`, name)
+    req, err := http.NewRequest("POST", BaseURL+"/drive/v1/files/create_folder",
         bytes.NewReader([]byte(body)))
     if err != nil {
         return "", err
@@ -165,48 +165,87 @@ type FileInfo struct {
 	Type  string
 }
 
-// ListFiles lists files in the root or a specific folder.
-func ListFiles(token, folderToken string) ([]FileInfo, error) {
-	url := BaseURL + "/drive/v1/files?page_size=100"
-	if folderToken != "" {
-		url += "&folder_token=" + folderToken
-	}
-	req, err := http.NewRequest("GET", url, nil)
+// DeleteFile deletes a file by its token. Returns nil even if the file is already gone.
+func DeleteFile(token, fileToken string) error {
+	req, err := http.NewRequest("DELETE",
+		BaseURL+"/drive/v1/files/"+fileToken, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("list files: %w", err)
+		return fmt.Errorf("delete file: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-		Data struct {
-			Files []struct {
-				Token string `json:"token"`
-				Name  string `json:"name"`
-				Type  string `json:"type"`
-			} `json:"files"`
-		} `json:"data"`
+	if resp.StatusCode == http.StatusNotFound {
+		return nil // already deleted
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("list files decode: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete file HTTP %d: %s", resp.StatusCode, string(body))
 	}
-	if result.Code != 0 {
-		return nil, fmt.Errorf("list files API: code=%d msg=%s", result.Code, result.Msg)
+	return nil
+}
+
+// ListFiles lists files in the root or a specific folder. Paginates through all pages.
+func ListFiles(token, folderToken string) ([]FileInfo, error) {
+	var allFiles []FileInfo
+	pageToken := ""
+
+	for {
+		url := BaseURL + "/drive/v1/files?page_size=100"
+		if folderToken != "" {
+			url += "&folder_token=" + folderToken
+		}
+		if pageToken != "" {
+			url += "&page_token=" + pageToken
+		}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("list files: %w", err)
+		}
+
+		var result struct {
+			Code int    `json:"code"`
+			Msg  string `json:"msg"`
+			Data struct {
+				Files     []struct {
+					Token string `json:"token"`
+					Name  string `json:"name"`
+					Type  string `json:"type"`
+				} `json:"files"`
+				HasMore   bool   `json:"has_more"`
+				PageToken string `json:"page_token"`
+			} `json:"data"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&result)
+			resp.Body.Close()
+			if decodeErr != nil {
+				return nil, fmt.Errorf("list files decode: %w", decodeErr)
+			}
+			if result.Code != 0 {
+				return nil, fmt.Errorf("list files API: code=%d msg=%s", result.Code, result.Msg)
+			}
+			for _, f := range result.Data.Files {
+				allFiles = append(allFiles, FileInfo{
+					Token: f.Token,
+					Name:  f.Name,
+					Type:  f.Type,
+				})
+			}
+			if !result.Data.HasMore {
+				break
+			}
+			pageToken = result.Data.PageToken
 	}
-	var files []FileInfo
-	for _, f := range result.Data.Files {
-		files = append(files, FileInfo{
-			Token: f.Token,
-			Name:  f.Name,
-			Type:  f.Type,
-		})
-	}
-	return files, nil
+	return allFiles, nil
 }
