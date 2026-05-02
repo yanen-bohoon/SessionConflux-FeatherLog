@@ -1,0 +1,20 @@
+[feishu]
+# Feishu app credentials. Create an app at https://open.feishu.cn/
+app_id = ""
+app_secret = ""
+# Folder token (optional). Leave empty to auto-create "SessionConflux" folder.
+folder_token = ""
+
+[sync]
+# Daily sync time in HH:MM format (24-hour).
+schedule = "02:00"
+# Sync direction: "both" | "upload" | "download"
+direction = "both"
+
+[agents]
+# Agent types to skip during scanning.
+exclude = ["warp", "copilot", "amp"]
+
+[compression]
+# zstd compression level (1-22). Default 3 balances speed and size.
+level = 3

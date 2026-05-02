@@ -1,0 +1,100 @@
+package state
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// Entry tracks upload state for a single session.
+// Key format: "computer/agent/session_id"
+type Entry struct {
+	MessageCount int    `json:"message_count"`
+	FileToken    string `json:"file_token"`
+	LastUploaded string `json:"last_uploaded"` // ISO 8601
+}
+
+// Store manages the state.json file.
+type Store struct {
+	path    string
+	entries map[string]Entry // key -> entry
+}
+
+// Load reads state from ~/.session-conflux/state.json.
+// Returns an empty store if the file doesn't exist.
+func Load() (*Store, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("home dir: %w", err)
+	}
+	dir := filepath.Join(home, ".session-conflux")
+	path := filepath.Join(dir, "state.json")
+
+	s := &Store{
+		path:    path,
+		entries: make(map[string]Entry),
+	}
+
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return s, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read state: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &s.entries); err != nil {
+		// corrupted file, start fresh
+		s.entries = make(map[string]Entry)
+	}
+	return s, nil
+}
+
+// Get returns the entry for a key, and whether it exists.
+func (s *Store) Get(key string) (Entry, bool) {
+	e, ok := s.entries[key]
+	return e, ok
+}
+
+// HasChanged returns true if the session has new messages (or is new).
+func (s *Store) HasChanged(key string, messageCount int) bool {
+	e, ok := s.entries[key]
+	if !ok {
+		return messageCount > 0
+	}
+	return messageCount > e.MessageCount
+}
+
+// MarkUploaded records a successful upload.
+func (s *Store) MarkUploaded(key string, messageCount int, fileToken string, timestamp string) {
+	s.entries[key] = Entry{
+		MessageCount: messageCount,
+		FileToken:    fileToken,
+		LastUploaded: timestamp,
+	}
+}
+
+// All returns all entries.
+func (s *Store) All() map[string]Entry {
+	return s.entries
+}
+
+// Save writes the state to disk.
+func (s *Store) Save() error {
+	dir := filepath.Dir(s.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create state dir: %w", err)
+	}
+
+	data, err := json.MarshalIndent(s.entries, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal state: %w", err)
+	}
+
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return fmt.Errorf("write tmp state: %w", err)
+	}
+	return os.Rename(tmp, s.path)
+}
