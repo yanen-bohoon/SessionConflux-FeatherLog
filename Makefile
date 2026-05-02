@@ -11,12 +11,8 @@ INSTALL_DIR := $(HOME)/.local/bin
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/session-conflux/
 
-# 构建 AgentsView（含前端）
+# 构建 AgentsView（含前端，从 vendored 源码）
 build-av:
-	@if [ ! -d agentsview/.git ]; then \
-		echo "初始化 submodule..."; \
-		git submodule update --init --recursive; \
-	fi
 	$(MAKE) -C agentsview build-release
 	cp agentsview/agentsview $(AV_BIN)
 

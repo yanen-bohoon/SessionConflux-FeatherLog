@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#3b82f6"/>
+  <!-- Periscope body (vertical tube) -->
+  <rect x="13" y="10" width="6" height="16" rx="2" fill="#fff"/>
+  <!-- Periscope head (angled top piece) -->
+  <rect x="11" y="5" width="10" height="7" rx="2" fill="#fff"/>
+  <!-- Lens/eye -->
+  <circle cx="18" cy="8.5" r="2" fill="#3b82f6"/>
+  <circle cx="18" cy="8.5" r="1" fill="#1d4ed8"/>
+</svg>

@@ -1,0 +1,103 @@
+review_guidelines = """
+agentsview is a single-user developer tool. Default mode binds to
+127.0.0.1. Optional managed Caddy proxy mode allows LAN access while
+keeping the backend on loopback. Optional remote access mode binds to
+0.0.0.0 with bearer-token auth for use over secure tunnels (Tailscale,
+SSH, reverse proxy with TLS). Not designed for multi-user or
+internet-facing deployment.
+
+Key assumptions reviewers MUST account for:
+
+1. AUTH MODEL: In local-only mode, loopback bind is the access
+   boundary — no auth tokens needed. In proxy mode, validateServeConfig
+   forces the backend to loopback; Caddy enforces CIDR subnet
+   allowlisting. When auth is required (`require_auth: true`), a
+   bearer token is required for all API requests (including localhost,
+   to prevent bypass via reverse proxy). An auth token is
+   auto-generated at startup if missing. Do not flag missing auth on
+   local-only code paths. DO flag any path that lets the backend bind
+   non-loopback in proxy mode, or missing subnet checks for
+   non-loopback Caddy binds.
+
+2. MANAGED CADDY INVARIANTS: Backend loopback-only (enforced).
+   Non-loopback Caddy binds require allowed_subnets. auto_https off;
+   TLS needs user-supplied cert/key. Caddyfile is generated, validated
+   via `caddy validate`, then run as a supervised child process.
+   DO flag Caddyfile injection via unsanitized config values.
+
+3. REMOTE ACCESS THREAT MODEL: Remote access is opt-in, intended for
+   encrypted tunnels. Accepted design decisions:
+   - No TLS termination — user's responsibility via tunnel/proxy.
+   - Token in URL for SSE — EventSource cannot set headers; accepted.
+   - Server restart required to rebind listener on toggle.
+   - Terminal config RCE prevention: generic PUT /api/v1/settings
+     rejects terminal updates; they must go through the validated
+     POST /api/v1/config/terminal endpoint.
+
+4. XSS: {@html renderMarkdown(...)} is safe — renderMarkdown()
+   sanitizes via DOMPurify before returning HTML.
+
+5. RATE LIMITING: Single-user tool. Do not flag missing rate limits
+   or concurrency caps.
+
+6. CORS: corsMiddleware requires matching Origin for mutating
+   requests. Allowed origins = loopback variants + public_url +
+   public_origins. In remote mode, authenticated requests (bearer
+   token) allow the request origin. Do not flag as overly permissive
+   unless origins outside the configured set are accepted.
+
+7. INPUT VALIDATION: Body size limits not required — backend is
+   loopback-only; in proxy mode Caddy subnet filtering limits
+   clients to trusted hosts. In remote mode, bearer token gates
+   all API access.
+
+8. SESSION DATA: Displaying session contents (tool args, commands,
+   paths) is the tool's purpose. The user owns these files. Do not
+   flag as sensitive data exposure.
+
+9. SUBPROCESS ENV: Agent CLI subprocesses intentionally inherit the
+   parent environment. Do not flag env var inheritance.
+
+10. SESSION PARSING: Input files are from local agent CLIs, not
+    adversarial. Do not flag missing cycle detection, recursion
+    limits, or unreachable-node checks in DAG traversals.
+
+11. WRITE ATOMICITY: Per-session transactions only. Full resync
+    recovers partial state. Do not flag non-atomic multi-session
+    writes.
+
+12. TOCTOU ON LOCAL FILES: Files in ~/.agentsview/ are user-owned.
+    An attacker with home-directory access already has equivalent
+    privileges. Do not flag TOCTOU on local-only paths.
+
+13. SCHEMA: Verify actual schema before flagging. tool_calls has
+    `id INTEGER PRIMARY KEY`. sessions has `relationship_type TEXT
+    NOT NULL DEFAULT ''` — NULLs cannot exist, so NOT IN is correct.
+
+14. CONTROL FLOW: Trace actual flow (early returns, continues,
+    conditionals) before claiming logic errors.
+
+15. DESKTOP (TAURI): Local wrapper around localhost backend. Focus
+    on: preventing remote navigation, tight CSP, no internal error
+    leakage, safe concurrency on response writers. Flag CSP
+    regressions (`csp: null`). Sidecar stdout may arrive in partial
+    chunks — flag code that assumes complete lines when readiness
+    depends on it.
+
+16. INSIGHT AGENT SANDBOXING: Not all agent CLIs offer equal
+    sandboxing. Claude (--tools ""), Codex (--sandbox read-only), and
+    Gemini (--sandbox) have verified no-tools/read-only modes.
+    Copilot only supports --disable-builtin-mcps (blocks MCP tools
+    but not all tool use). Kiro CLI uses --trust-tools= and
+    --no-interactive (disables tool trust prompts but does not
+    prevent tool execution); cwd is set to os.TempDir() to limit
+    exposure. This is an accepted design decision: agentsview
+    operates on the user's own session data, and users should only
+    run insight generation with agents they trust — the same trust
+    model as running agents on codebases. Do not flag Copilot's or
+    Kiro's sandboxing as insufficient.
+
+Do NOT flag issues that only apply to public-facing, multi-tenant,
+or internet-exposed services. Focus on bugs, logic errors, data
+corruption risks, and code quality issues.
+"""

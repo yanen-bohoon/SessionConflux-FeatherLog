@@ -1,0 +1,62 @@
+# Go binaries
+/agentsview
+/agentsview.exe
+/agentsv
+/custom-gcl
+/testfixture
+*.test.exe
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/test-results/
+test-results/
+frontend/playwright-report/
+
+# Embedded frontend build output
+internal/web/dist/*
+!internal/web/dist/.keep
+
+# Test/build artifacts
+/dist/
+*.out
+coverage.out
+*.test
+
+# Air (live-reload dev server)
+/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+
+# Build caches
+.gocache
+.cache
+.gomodcache/
+.gopath/
+
+# SSH test key (extracted from Docker container)
+testdata/ssh/test_key
+
+# Local data
+data/
+sessions/
+html/
+.superset/
+.github/hooks/
+.superpowers/
+.worktrees/
+
+# Visual verification scratch — per-task screenshot/HTML capture dirs.
+.test-data*/

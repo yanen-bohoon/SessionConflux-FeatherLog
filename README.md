@@ -10,7 +10,7 @@
 
 ```bash
 # 一键安装（含 AgentsView 浏览端）
-git clone --recursive https://github.com/yanen-bohoon/SessionConflux-FeatherLog.git
+git clone https://github.com/yanen-bohoon/SessionConflux-FeatherLog.git
 cd SessionConflux-FeatherLog
 make install
 ```
