@@ -1,6 +1,9 @@
 ## SessionConflux + AgentsView 统一构建
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -s -w -X main.version=$(VERSION)
+LDFLAGS_AV := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)
 BIN := session-conflux
 AV_BIN := agentsview
 INSTALL_DIR := $(HOME)/SessionConflux-FeatherLog
@@ -11,9 +14,9 @@ INSTALL_DIR := $(HOME)/SessionConflux-FeatherLog
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/session-conflux/
 
-# 构建 AgentsView（含前端，从 vendored 源码）
+# 构建 AgentsView（使用预构建的前端 dist，无需 Node.js）
 build-av:
-	$(MAKE) -C agentsview build-release
+	cd agentsview && CGO_ENABLED=1 go build -tags fts5 -ldflags="$(LDFLAGS_AV)" -trimpath -o agentsview ./cmd/agentsview
 	cp agentsview/agentsview $(AV_BIN)
 
 # 构建全部

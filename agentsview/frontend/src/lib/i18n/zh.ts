@@ -231,4 +231,11 @@ export const zh: Record<string, string> = {
   'common.save': '保存',
   'common.close': '关闭',
   'common.confirm': '确认',
+
+  // Session toast
+  'session.deleted': '会话已删除',
+  'session.undo': '撤销',
+
+  // Appearance
+  'appearance.locale': '语言',
 };

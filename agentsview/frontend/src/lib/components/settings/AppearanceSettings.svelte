@@ -6,7 +6,7 @@
     type BlockType,
     type MessageLayout,
   } from "../../stores/ui.svelte.js";
-  import { t } from "../../i18n/index.js";
+  import { t, getLocale, setLocale } from "../../i18n/index.js";
 
   const LAYOUT_OPTIONS: { value: MessageLayout; label: string }[] = [
     { value: "default", label: t("appearance.default") },
@@ -32,6 +32,26 @@
     <button class="setting-toggle" onclick={() => ui.toggleTheme()}>
       {ui.theme === "light" ? t("appearance.theme_light") : t("appearance.theme_dark")}
     </button>
+  </div>
+
+  <div class="setting-row">
+    <span class="setting-label">{t("appearance.locale")}</span>
+    <div class="setting-options">
+      <button
+        class="option-btn"
+        class:active={getLocale() === "en"}
+        onclick={() => { setLocale("en"); }}
+      >
+        English
+      </button>
+      <button
+        class="option-btn"
+        class:active={getLocale() === "zh"}
+        onclick={() => { setLocale("zh"); }}
+      >
+        中文
+      </button>
+    </div>
   </div>
 
   <div class="setting-row">

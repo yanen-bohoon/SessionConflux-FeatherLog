@@ -5,6 +5,10 @@ __pycache__/
 dist/
 build/
 
+# Allow pre-built frontend dist for agentsview embed
+!agentsview/internal/web/dist/
+!agentsview/internal/web/dist/**
+
 # Config
 config.yaml
 

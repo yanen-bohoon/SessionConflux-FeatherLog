@@ -39,9 +39,10 @@ var statusCmd = &cobra.Command{
 }
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Configure Feishu credentials",
-	Run:   runConfig,
+	Use:     "setup",
+	Aliases: []string{"config"},
+	Short:   "Guided setup wizard for Feishu credentials",
+	Run:     runSetup,
 }
 
 var syncCmd = &cobra.Command{
@@ -148,7 +149,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runConfig(cmd *cobra.Command, args []string) {
+func runSetup(cmd *cobra.Command, args []string) {
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
@@ -157,73 +158,89 @@ func runConfig(cmd *cobra.Command, args []string) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("SessionConflux Configuration")
-	fmt.Println("============================")
+	fmt.Println("SessionConflux Setup")
+	fmt.Println("====================")
+	fmt.Println()
 
-	// App ID
-	fmt.Printf("Feishu App ID [%s]: ", cfg.Feishu.AppID)
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input != "" {
+	// Step 1: App ID (required, loop until non-empty)
+	for cfg.Feishu.AppID == "" {
+		fmt.Print("1. Feishu App ID: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   App ID is required. Find it at Feishu Open Platform → App Settings.")
+			continue
+		}
 		cfg.Feishu.AppID = input
 	}
 
-	// App Secret
-	secretPrompt := "Feishu App Secret: "
-	if cfg.Feishu.AppSecret != "" {
-		secretPrompt = fmt.Sprintf("Feishu App Secret [***]: ")
-	}
-	fmt.Print(secretPrompt)
-	input, _ = reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input != "" && input != "***" {
+	// Step 2: App Secret (required, min 8 chars)
+	for cfg.Feishu.AppSecret == "" {
+		fmt.Print("2. Feishu App Secret: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   App Secret is required.")
+			continue
+		}
+		if len(input) < 8 {
+			fmt.Println("   App Secret appears too short (< 8 chars). Please re-enter.")
+			continue
+		}
 		cfg.Feishu.AppSecret = input
 	}
 
-	// Test auth
-	if cfg.Feishu.AppID != "" && cfg.Feishu.AppSecret != "" {
-		fmt.Print("Verifying credentials... ")
+	// Step 3: Verify credentials (loop until success)
+	fmt.Println()
+	for {
+		fmt.Print("3. Verifying credentials... ")
 		token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
 		if err != nil {
 			fmt.Printf("FAILED: %v\n", err)
-		} else {
-			fmt.Println("OK")
-
-			// Find or create root folder
-			if cfg.Feishu.FolderToken == "" {
-				fmt.Print("Setting up SessionConflux folder... ")
-				folderToken, err := feishu.FindOrCreateFolder(token, "SessionConflux")
-				if err != nil {
-					fmt.Printf("FAILED: %v\n", err)
-				} else {
-					cfg.Feishu.FolderToken = folderToken
-					fmt.Println("OK")
-				}
+			fmt.Print("   Re-enter App ID? (Enter to keep, or type new value): ")
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Feishu.AppID = input
 			}
+			fmt.Print("   Re-enter App Secret? (Enter to keep, or type new value): ")
+			input, _ = reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Feishu.AppSecret = input
+			}
+			continue
 		}
+		fmt.Println("OK")
+
+		// Step 4: Find or create root folder
+		fmt.Print("4. Setting up SessionConflux folder... ")
+		folderToken, err := feishu.FindOrCreateFolder(token, "SessionConflux")
+		if err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+		} else {
+			cfg.Feishu.FolderToken = folderToken
+			fmt.Println("OK")
+		}
+		break
 	}
 
-	// Sync schedule
-	fmt.Printf("Sync schedule (HH:MM) [%s]: ", cfg.Sync.Schedule)
-	input, _ = reader.ReadString('\n')
+	// Step 5: Sync schedule (optional)
+	fmt.Println()
+	fmt.Printf("5. Sync schedule (HH:MM, 24h format) [%s]: ", cfg.Sync.Schedule)
+	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
 		cfg.Sync.Schedule = input
-	}
-
-	// Sync direction
-	fmt.Printf("Sync direction (both/upload/download) [%s]: ", cfg.Sync.Direction)
-	input, _ = reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input != "" {
-		cfg.Sync.Direction = input
 	}
 
 	if err := config.Save(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Configuration saved.")
+	fmt.Println()
+	fmt.Println("Configuration saved to ~/.session-conflux/config.toml")
+	fmt.Println("Run 'session-conflux upload' to start syncing.")
 }
 
 func runList(cmd *cobra.Command, args []string) {

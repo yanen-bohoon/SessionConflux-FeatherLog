@@ -13,9 +13,8 @@ frontend/test-results/
 test-results/
 frontend/playwright-report/
 
-# Embedded frontend build output
-internal/web/dist/*
-!internal/web/dist/.keep
+# Embedded frontend build output (pre-built dist committed to repo)
+# internal/web/dist/*
 
 # Test/build artifacts
 /dist/

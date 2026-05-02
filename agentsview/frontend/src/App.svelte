@@ -35,11 +35,16 @@
   import { setupVisibilityHealthCheck } from "./lib/utils/health.js";
   import { registerShortcuts } from "./lib/utils/keyboard.js";
   import { shouldAutoSwitchTranscriptModeToNormal } from "./lib/utils/transcript-mode.js";
-  import { registerLocale, setLocale } from "./lib/i18n/index.js";
+  import { registerLocale, setLocale, t } from "./lib/i18n/index.js";
   import { zh } from "./lib/i18n/zh.js";
+  import { en } from "./lib/i18n/en.js";
   registerLocale("zh", zh);
-  registerLocale("en", {});
-  setLocale("zh");
+  registerLocale("en", en);
+  // Restore saved locale or default to English.
+  const savedLocale = (() => {
+    try { return localStorage.getItem("agentsview-locale"); } catch { return null; }
+  })();
+  setLocale(savedLocale === "zh" ? "zh" : "en");
 
   let globalAuthToken: string = $state("");
 
@@ -366,16 +371,15 @@
 {#if settings.needsAuth && router.route !== "settings"}
   <div class="auth-overlay">
     <div class="auth-card">
-      <h2 class="auth-card-title">Authentication Required</h2>
+      <h2 class="auth-card-title">{t("settings.auth_required")}</h2>
       <p class="auth-card-desc">
-        This server requires an auth token to access. Enter the token
-        shown on the server's console or settings page.
+        {t("settings.auth_desc")}
       </p>
       <div class="auth-card-field">
         <input
           class="auth-card-input"
           type="password"
-          placeholder="Paste auth token"
+          placeholder={t("settings.auth_placeholder")}
           bind:value={globalAuthToken}
           onkeydown={(e) => { if (e.key === "Enter") handleGlobalAuth(); }}
         />
@@ -384,7 +388,7 @@
           disabled={!globalAuthToken.trim()}
           onclick={handleGlobalAuth}
         >
-          Authenticate
+          {t("settings.auth_button")}
         </button>
       </div>
       <button
@@ -396,7 +400,7 @@
           settings.load();
         }}
       >
-        Disconnect and reset
+        {t("settings.disconnect")}
       </button>
     </div>
   </div>
@@ -489,7 +493,7 @@
 
 {#if sessions.recentlyDeleted.length > 0}
   <div class="undo-toast">
-    <span>Session deleted</span>
+    <span>{t("session.deleted")}</span>
     <button
       class="undo-btn"
       onclick={async (e) => {
@@ -507,7 +511,7 @@
         }
       }}
     >
-      Undo
+      {t("session.undo")}
     </button>
   </div>
 {/if}

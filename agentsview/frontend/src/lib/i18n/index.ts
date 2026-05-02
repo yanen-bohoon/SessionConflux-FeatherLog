@@ -1,14 +1,17 @@
 type LocaleMessages = Record<string, string>;
 
 const locales: Record<string, LocaleMessages> = {};
-let current: string = 'zh';
+let current: string = 'en';
 
 export function registerLocale(lang: string, messages: LocaleMessages) {
   locales[lang] = messages;
 }
 
 export function setLocale(lang: string) {
-  if (locales[lang]) current = lang;
+  if (!locales[lang]) return;
+  current = lang;
+  try { localStorage.setItem("agentsview-locale", lang); } catch { /* noop */ }
+  window.location.reload();
 }
 
 export function getLocale(): string {
