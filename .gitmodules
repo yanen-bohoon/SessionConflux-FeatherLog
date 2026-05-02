@@ -1,0 +1,3 @@
+[submodule "agentsview"]
+	path = agentsview
+	url = https://github.com/wesm/agentsview.git
