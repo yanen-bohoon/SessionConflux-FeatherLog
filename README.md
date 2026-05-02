@@ -15,16 +15,22 @@ cd SessionConflux-FeatherLog
 make install
 ```
 
-`session-conflux` 和 `agentsview` 将安装到 `~/.local/bin/`。
+`session-conflux` 和 `agentsview` 将安装到 `~/SessionConflux-FeatherLog/`。
 
 如果只想装同步工具：
 
 ```bash
 make build          # 仅构建 session-conflux
-cp session-conflux ~/.local/bin/
+cp session-conflux ~/SessionConflux-FeatherLog/
 ```
 
 ## 快速开始
+
+安装后建议将目录加入 PATH：
+
+```sh
+export PATH="$HOME/SessionConflux-FeatherLog:$PATH"
+```
 
 ```sh
 # 1. 配置飞书凭证

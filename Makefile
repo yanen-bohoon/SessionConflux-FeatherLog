@@ -3,7 +3,7 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 LDFLAGS := -s -w -X main.version=$(VERSION)
 BIN := session-conflux
 AV_BIN := agentsview
-INSTALL_DIR := $(HOME)/.local/bin
+INSTALL_DIR := $(HOME)/SessionConflux-FeatherLog
 
 .PHONY: build build-av build-all install clean release
 
@@ -19,17 +19,17 @@ build-av:
 # 构建全部
 build-all: build build-av
 
-# 一键安装到 ~/.local/bin
+# 一键安装到 ~/SessionConflux-FeatherLog
 install: build-all
 	mkdir -p $(INSTALL_DIR)
 	cp $(BIN) $(INSTALL_DIR)/$(BIN)
 	cp $(AV_BIN) $(INSTALL_DIR)/$(AV_BIN)
-	@echo "安装完成:"
-	@echo "  session-conflux: $(INSTALL_DIR)/$(BIN)"
-	@echo "  agentsview:      $(INSTALL_DIR)/$(AV_BIN)"
+	@echo "安装完成: $(INSTALL_DIR)/"
+	@echo "  ├── session-conflux"
+	@echo "  └── agentsview"
 	@echo ""
 	@if ! echo "$$PATH" | grep -q "$(INSTALL_DIR)"; then \
-		echo "注意: $(INSTALL_DIR) 不在 PATH 中，请添加到 shell 配置:"; \
+		echo "提示: 将此目录添加到 PATH 以便全局使用:"; \
 		echo "  export PATH=\"$(INSTALL_DIR):\$$PATH\""; \
 	fi
 
