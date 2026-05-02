@@ -3,7 +3,6 @@ package sync
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -144,7 +143,7 @@ func downloadBaseline(token, hostname, folderToken string) int {
 
 	n := 0
 	for name, content := range files {
-		agent, sessionID := parseBundleEntry(name)
+		hostname, agent, sessionID := parseBundleEntry(name)
 		if agent == "" {
 			continue
 		}
@@ -152,7 +151,7 @@ func downloadBaseline(token, hostname, folderToken string) int {
 		if agentDir == "" {
 			continue
 		}
-		if err := bundle.WriteToAgentDir(agent, sessionID, content, agentDir); err != nil {
+		if err := bundle.WriteToAgentDir(hostname, agent, sessionID, content, agentDir); err != nil {
 			continue
 		}
 		n++
@@ -227,9 +226,9 @@ func downloadIncremental(token, hostname, folderToken string, cfg *config.Config
 		if agentDir == "" {
 			continue
 		}
-		targetDir := filepath.Join(agentDir, "_synced")
-		os.MkdirAll(targetDir, 0755)
-		os.WriteFile(filepath.Join(targetDir, sessionID+".jsonl"), jsonl, 0644)
+		if err := bundle.WriteToAgentDir(hostname, agent, sessionID, jsonl, agentDir); err != nil {
+			continue
+		}
 		n++
 	}
 	if n > 0 {
@@ -247,9 +246,12 @@ func findFileInList(files []feishu.FileInfo, name string) string {
 	return ""
 }
 
-func parseBundleEntry(name string) (agent, sessionID string) {
+func parseBundleEntry(name string) (hostname, agent, sessionID string) {
 	name = strings.TrimSuffix(name, ".jsonl")
 	parts := strings.SplitN(name, "/", 3)
+	if len(parts) >= 1 {
+		hostname = parts[0]
+	}
 	if len(parts) >= 2 {
 		agent = parts[1]
 	}
@@ -279,9 +281,7 @@ func DownloadSession(cfg *config.Config, session RemoteSession) error {
 	if agentDir == "" {
 		return fmt.Errorf("no dir for %s", session.Agent)
 	}
-	targetDir := filepath.Join(agentDir, "_synced")
-	os.MkdirAll(targetDir, 0755)
-	return os.WriteFile(filepath.Join(targetDir, session.SessionID+".jsonl"), jsonl, 0644)
+	return bundle.WriteToAgentDir(session.Computer, session.Agent, session.SessionID, jsonl, agentDir)
 }
 
 func findAgentDir(agent string) string {

@@ -75,9 +75,10 @@ func Unpack(data []byte) (map[string][]byte, error) {
 }
 
 // WriteToAgentDir writes session data to the appropriate agent directory
-// so that AgentsView's fsnotify discovers it.
-func WriteToAgentDir(agent, sessionID string, data []byte, agentDir string) error {
-	targetDir := filepath.Join(agentDir, "_synced")
+// so that AgentsView's fsnotify discovers it. The hostname is embedded in
+// the path so AgentsView can extract the source machine.
+func WriteToAgentDir(hostname, agent, sessionID string, data []byte, agentDir string) error {
+	targetDir := filepath.Join(agentDir, "_synced", hostname)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
 	}
