@@ -224,19 +224,25 @@ func readBundlePartsData(token, folderToken string, files []feishu.FileInfo) ([]
 
 	sort.Strings(parts)
 	var allData []byte
-	for _, name := range parts {
+	for i, name := range parts {
 		ft := findFileInList(files, name)
 		if ft == "" {
 			continue
 		}
-		data, err := feishu.DownloadFile(token, ft)
+
+		fmt.Printf("\r  Baseline: [%d/%d] %s", i+1, len(parts), name)
+		data, err := feishu.DownloadFile(token, ft, func(downloaded, total int64) {
+			fmt.Printf("\r  Baseline: [%d/%d] %s  %s / %s",
+				i+1, len(parts), name,
+				formatBytes(downloaded), formatBytesOrUnknown(total))
+		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN: download %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "\n  WARN: download %s: %v\n", name, err)
 			continue
 		}
 		allData = append(allData, data...)
-		fmt.Printf("  Part: %s (%d KB)\n", name, len(data)/1024)
 	}
+	fmt.Print("\n")
 	return allData, nil
 }
 
@@ -245,6 +251,14 @@ func downloadIncremental(token, hostname, folderToken string, st *state.Store, n
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list incremental: %v\n", err)
 		return 0
+	}
+
+	// Count .jsonl.zst files for progress total.
+	total := 0
+	for _, f := range files {
+		if strings.HasSuffix(f.Name, ".jsonl.zst") {
+			total++
+		}
 	}
 
 	sessionCount := 0
@@ -271,14 +285,21 @@ func downloadIncremental(token, hostname, folderToken string, st *state.Store, n
 			continue
 		}
 
-		data, err := feishu.DownloadFile(token, f.Token)
+		label := fmt.Sprintf("%s/%s.jsonl.zst", agent, sessionID)
+		fmt.Printf("\r  Incremental: [%d/%d] %s",
+			sessionCount+skipped+1, total, label)
+		data, err := feishu.DownloadFile(token, f.Token, func(downloaded, totalBytes int64) {
+			fmt.Printf("\r  Incremental: [%d/%d] %s  %s / %s",
+				sessionCount+skipped+1, total, label,
+				formatBytes(downloaded), formatBytesOrUnknown(totalBytes))
+		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN: download %s: %v\n", dlKey, err)
+			fmt.Fprintf(os.Stderr, "\n  WARN: download %s: %v\n", dlKey, err)
 			continue
 		}
 		jsonl, err := compress.Decompress(data)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN: decompress %s: %v\n", dlKey, err)
+			fmt.Fprintf(os.Stderr, "\n  WARN: decompress %s: %v\n", dlKey, err)
 			continue
 		}
 		agentDir := findAgentDir(agent)
@@ -286,14 +307,14 @@ func downloadIncremental(token, hostname, folderToken string, st *state.Store, n
 			continue
 		}
 		if err := bundle.WriteToAgentDir(hostname, agent, sessionID, jsonl, agentDir); err != nil {
-			fmt.Fprintf(os.Stderr, "  WARN: write %s: %v\n", dlKey, err)
+			fmt.Fprintf(os.Stderr, "\n  WARN: write %s: %v\n", dlKey, err)
 			continue
 		}
 		st.MarkDownloaded(dlKey, f.Token, now)
 		sessionCount++
 	}
 	if sessionCount+skipped > 0 {
-		fmt.Printf("  Incremental: %d sessions (%d new, %d skipped)\n",
+		fmt.Printf("\r  Incremental: %d sessions (%d new, %d skipped)\n",
 			sessionCount+skipped, sessionCount, skipped)
 	}
 	return sessionCount
@@ -331,10 +352,17 @@ func DownloadSession(cfg *config.Config, session RemoteSession) error {
 	if err != nil {
 		return fmt.Errorf("auth: %w", err)
 	}
-	data, err := feishu.DownloadFile(token, session.FileToken)
+	fmt.Printf("  Downloading %s...", session.Key)
+	data, err := feishu.DownloadFile(token, session.FileToken, func(downloaded, total int64) {
+		fmt.Printf("\r  Downloading %s  %s / %s",
+			session.Key,
+			formatBytes(downloaded), formatBytesOrUnknown(total))
+	})
 	if err != nil {
+		fmt.Print("\n")
 		return err
 	}
+	fmt.Printf("\r  Downloading %s  %s done\n", session.Key, formatBytes(int64(len(data))))
 	jsonl, err := compress.Decompress(data)
 	if err != nil {
 		return err
@@ -357,4 +385,24 @@ func findAgentDir(agent string) string {
 		}
 	}
 	return ""
+}
+
+func formatBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for n/div >= unit && exp < 2 {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KM"[exp])
+}
+
+func formatBytesOrUnknown(n int64) string {
+	if n <= 0 {
+		return "?? B"
+	}
+	return formatBytes(n)
 }

@@ -96,8 +96,12 @@ func UploadFile(token, folderToken, fileName string, data []byte) (string, error
     return result.Data.Token, nil
 }
 
-// DownloadFile downloads a file by its token.
-func DownloadFile(token, fileToken string) ([]byte, error) {
+// ProgressFunc is called during download with bytes received and total (0 if unknown).
+type ProgressFunc func(downloaded, total int64)
+
+// DownloadFile downloads a file by its token. If progress is non-nil, it is called
+// periodically with bytes downloaded so far and total size.
+func DownloadFile(token, fileToken string, progress ProgressFunc) ([]byte, error) {
     req, err := http.NewRequest("GET",
         BaseURL+"/drive/v1/files/"+fileToken+"/download", nil)
     if err != nil {
@@ -116,7 +120,30 @@ func DownloadFile(token, fileToken string) ([]byte, error) {
         return nil, fmt.Errorf("download HTTP %d: %s", resp.StatusCode, string(body))
     }
 
-    return io.ReadAll(resp.Body)
+    if progress == nil {
+        return io.ReadAll(resp.Body)
+    }
+
+    total := resp.ContentLength
+    progress(0, total)
+    var buf bytes.Buffer
+    chunk := make([]byte, 32*1024)
+    var downloaded int64
+    for {
+        n, err := resp.Body.Read(chunk)
+        if n > 0 {
+            buf.Write(chunk[:n])
+            downloaded += int64(n)
+            progress(downloaded, total)
+        }
+        if err != nil {
+            if err == io.EOF {
+                break
+            }
+            return nil, fmt.Errorf("download read: %w", err)
+        }
+    }
+    return buf.Bytes(), nil
 }
 
 // FindOrCreateFolder finds a folder by name under parentToken (or root), or creates it.
