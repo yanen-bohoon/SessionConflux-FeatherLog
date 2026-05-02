@@ -61,6 +61,7 @@ agentsview serve
 |---------|-------------|
 | `config` | 交互式配置飞书凭证 |
 | `list` | 列出所有本地 AI 会话 |
+| `status` | 查看同步状态摘要 |
 | `upload` | 上传有变动的会话到飞书云空间 |
 | `download` | 从飞书云空间下载会话（`--all` / `--session <key>`） |
 | `sync` | 守护进程模式，每天定时自动同步 |
