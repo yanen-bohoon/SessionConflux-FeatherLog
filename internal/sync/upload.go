@@ -16,10 +16,7 @@ import (
 const maxChunkSize = 19 * 1024 * 1024
 
 type UploadStats struct {
-	Total   int
-	Synced  int
-	Skipped int
-	Failed  int
+	Total, Synced, Skipped, Failed int
 }
 
 func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
@@ -28,11 +25,11 @@ func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
 		return nil, fmt.Errorf("auth: %w", err)
 	}
 
-	folderToken := cfg.Feishu.FolderToken
-	if folderToken == "" {
-		folderToken, err = feishu.FindOrCreateFolder(token, "SessionConflux")
+	l1 := cfg.Feishu.FolderToken
+	if l1 == "" {
+		l1, err = feishu.FindOrCreateFolder(token, "SessionConflux")
 		if err != nil {
-			return nil, fmt.Errorf("folder: %w", err)
+			return nil, fmt.Errorf("L1 folder: %w", err)
 		}
 	}
 
@@ -43,23 +40,21 @@ func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
 		exclude[a] = true
 	}
 
-	// Always upload bundle.
+	l2, err := feishu.FindOrCreateFolder(token, hostname, l1)
+	if err != nil {
+		return nil, fmt.Errorf("L2 folder: %w", err)
+	}
+	baseline, err := feishu.FindOrCreateFolder(token, "baseline", l2)
+	if err != nil {
+		return nil, fmt.Errorf("baseline folder: %w", err)
+	}
+
 	fmt.Println("Uploading bundle...")
-	n, err := uploadBundleFast(token, folderToken, hostname, exclude, cfg.Compression.Level)
+	n, err := uploadBundle(token, baseline, hostname, exclude, cfg.Compression.Level)
 	if err != nil {
 		return nil, err
 	}
 	return &UploadStats{Total: n, Synced: n}, nil
-}
-
-func bundleOnDrive(token, folderToken string) bool {
-	files, _ := feishu.ListFiles(token, folderToken)
-	for _, f := range files {
-		if f.Name == bundle.BundleFileName || strings.HasPrefix(f.Name, "bundle.part") {
-			return true
-		}
-	}
-	return false
 }
 
 type fileEntry struct{ Path, Agent, SessionID string }
@@ -76,14 +71,14 @@ func discoverFiles(exclude map[string]bool) []fileEntry {
 					return nil
 				}
 				if info.IsDir() {
-					if strings.HasPrefix(info.Name(), ".") && path != dir {
+					if info.Name() == "_synced" || (strings.HasPrefix(info.Name(), ".") && path != dir) {
 						return filepath.SkipDir
 					}
 					return nil
 				}
 				if strings.HasSuffix(info.Name(), ".jsonl") {
 					name := info.Name()
-					sid := name[:len(name)-6] // strip .jsonl
+					sid := name[:len(name)-6]
 					out = append(out, fileEntry{path, def.Type, sid})
 				}
 				return nil
@@ -93,11 +88,10 @@ func discoverFiles(exclude map[string]bool) []fileEntry {
 	return out
 }
 
-func uploadBundleFast(token, folderToken, hostname string, exclude map[string]bool, level int) (int, error) {
+func uploadBundle(token, baselineToken, hostname string, exclude map[string]bool, level int) (int, error) {
 	files := discoverFiles(exclude)
 	fmt.Printf("Packing %d files...\n", len(files))
 
-	// Read files and build tar.zst in one pass
 	sessionData := make(map[string][]byte)
 	for i, f := range files {
 		if i > 0 && i%50 == 0 {
@@ -119,9 +113,14 @@ func uploadBundleFast(token, folderToken, hostname string, exclude map[string]bo
 
 	fmt.Printf("  archive: %d KB\n", len(archive)/1024)
 
-	// Upload
+	// Clean old bundle parts before uploading new ones
+	oldFiles, _ := feishu.ListFiles(token, baselineToken)
+	for _, f := range oldFiles {
+		feishu.DeleteFile(token, f.Token)
+	}
+
 	if len(archive) <= maxChunkSize {
-		_, err = feishu.UploadFile(token, folderToken, bundle.BundleFileName, archive)
+		_, err = feishu.UploadFile(token, baselineToken, bundle.BundleFileName, archive)
 		if err != nil {
 			return 0, fmt.Errorf("upload: %w", err)
 		}
@@ -136,7 +135,7 @@ func uploadBundleFast(token, folderToken, hostname string, exclude map[string]bo
 				end = len(archive)
 			}
 			name := fmt.Sprintf("%s.part%02d", bundle.BundleFileName, i+1)
-			_, err = feishu.UploadFile(token, folderToken, name, archive[start:end])
+			_, err = feishu.UploadFile(token, baselineToken, name, archive[start:end])
 			if err != nil {
 				return 0, fmt.Errorf("upload part %d: %w", i+1, err)
 			}

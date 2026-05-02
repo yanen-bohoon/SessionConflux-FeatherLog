@@ -9,9 +9,13 @@ import (
     "net/http"
 )
 
-// CreateFolder creates a folder in Feishu Drive root and returns its token.
-func CreateFolder(token, name string) (string, error) {
-    body := fmt.Sprintf(`{"name":"%s","folder_token":""}`, name)
+// CreateFolder creates a folder. If parentToken is given, creates under it; otherwise root.
+func CreateFolder(token, name string, parentToken ...string) (string, error) {
+	parent := ""
+	if len(parentToken) > 0 {
+		parent = parentToken[0]
+	}
+    body := fmt.Sprintf(`{"name":"%s","folder_token":"%s"}`, name, parent)
     req, err := http.NewRequest("POST", BaseURL+"/drive/v1/files/create_folder",
         bytes.NewReader([]byte(body)))
     if err != nil {
@@ -115,47 +119,24 @@ func DownloadFile(token, fileToken string) ([]byte, error) {
     return io.ReadAll(resp.Body)
 }
 
-// FindOrCreateFolder finds a folder by name in root, or creates it.
-func FindOrCreateFolder(token, name string) (string, error) {
-    // Try to list root files and find by name
-    req, err := http.NewRequest("GET",
-        BaseURL+"/drive/v1/files?page_size=100&direction=ASC", nil)
-    if err != nil {
-        return "", err
-    }
-    req.Header.Set("Authorization", "Bearer "+token)
-
-    resp, err := http.DefaultClient.Do(req)
-    if err != nil {
-        return "", err
-    }
-    defer resp.Body.Close()
-
-    var result struct {
-        Code int `json:"code"`
-        Msg  string `json:"msg"`
-        Data struct {
-            Files []struct {
-                Token string `json:"token"`
-                Name  string `json:"name"`
-                Type  string `json:"type"`
-            } `json:"files"`
-        } `json:"data"`
-    }
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return "", fmt.Errorf("list files decode: %w", err)
-    }
-    if result.Code != 0 {
-        return "", fmt.Errorf("list files API error: code=%d msg=%s", result.Code, result.Msg)
-    }
-
-    for _, f := range result.Data.Files {
-        if f.Name == name && f.Type == "folder" {
-            return f.Token, nil
-        }
-    }
-    // Not found, create it
-    return CreateFolder(token, name)
+// FindOrCreateFolder finds a folder by name under parentToken (or root), or creates it.
+func FindOrCreateFolder(token, name string, parentToken ...string) (string, error) {
+	parent := ""
+	if len(parentToken) > 0 {
+		parent = parentToken[0]
+	}
+	// List files under parent
+	files, err := ListFiles(token, parent)
+	if err != nil {
+		return "", err
+	}
+	for _, f := range files {
+		if f.Name == name && f.Type == "folder" {
+			return f.Token, nil
+		}
+	}
+	// Not found, create it under parent
+	return CreateFolder(token, name, parent)
 }
 
 // FileInfo holds basic file metadata from the Drive API.
@@ -168,7 +149,7 @@ type FileInfo struct {
 // DeleteFile deletes a file by its token. Returns nil even if the file is already gone.
 func DeleteFile(token, fileToken string) error {
 	req, err := http.NewRequest("DELETE",
-		BaseURL+"/drive/v1/files/"+fileToken, nil)
+		BaseURL+"/drive/v1/files/"+fileToken+"?type=file", nil)
 	if err != nil {
 		return err
 	}
