@@ -127,7 +127,11 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 		fmt.Printf("Machine: %s\n", host.Name)
 
 		// Find baseline and incremental folders
-		l3Files, _ := feishu.ListFiles(token, host.Token)
+		l3Files, err := feishu.ListFiles(token, host.Token)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: list %s contents: %v\n", host.Name, err)
+			continue
+		}
 		for _, l3 := range l3Files {
 			if l3.Type != "folder" {
 				continue
@@ -173,7 +177,11 @@ func downloadBaseline(token, hostname, folderToken string, st *state.Store, now 
 	}
 
 	allData, err := readBundlePartsData(token, folderToken, files)
-	if err != nil || len(allData) == 0 {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  WARN: read bundle parts: %v\n", err)
+		return 0
+	}
+	if len(allData) == 0 {
 		return 0
 	}
 
@@ -195,6 +203,7 @@ func downloadBaseline(token, hostname, folderToken string, st *state.Store, now 
 			continue
 		}
 		if err := bundle.WriteToAgentDir(hostname, agent, sessionID, content, agentDir); err != nil {
+			fmt.Fprintf(os.Stderr, "  WARN: write %s/%s/%s: %v\n", hostname, agent, sessionID, err)
 			continue
 		}
 		n++
