@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/yanen-bohoon/session-conflux/internal/parser"
+	"github.com/yanen-bohoon/session-conflux/internal/registry"
 )
 
 // ScanResult is a discovered session ready for display.
@@ -23,11 +23,11 @@ type ScanResult struct {
 func Scan(exclude map[string]bool) ([]ScanResult, error) {
 	var results []ScanResult
 
-	for _, def := range parser.AllAgents {
+	for _, def := range registry.AllAgents {
 		if exclude[def.Type] {
 			continue
 		}
-		dirs := parser.ResolveAgentDirs(def)
+		dirs := registry.ResolveAgentDirs(def)
 		for _, dir := range dirs {
 			found, err := discoverInDir(dir, def.Type)
 			if err != nil {

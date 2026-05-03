@@ -4,11 +4,14 @@ import (
 	"fmt"
 
 	"github.com/yanen-bohoon/session-conflux/internal/config"
+	"github.com/yanen-bohoon/session-conflux/internal/feishu"
 	"github.com/yanen-bohoon/session-conflux/internal/state"
 )
 
 // RunFullSync performs a bidirectional sync (upload then download).
 func RunFullSync(cfg *config.Config) error {
+	client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+
 	st, err := state.Load()
 	if err != nil {
 		return fmt.Errorf("load state: %w", err)
@@ -22,7 +25,7 @@ func RunFullSync(cfg *config.Config) error {
 	switch direction {
 	case "upload":
 		fmt.Println("--- Upload ---")
-		stats, err := UploadChanged(cfg, st)
+		stats, err := UploadChanged(client, cfg, st)
 		if err != nil {
 			return fmt.Errorf("upload: %w", err)
 		}
@@ -31,7 +34,7 @@ func RunFullSync(cfg *config.Config) error {
 
 	case "download":
 		fmt.Println("--- Download ---")
-		n, err := DownloadAllSessions(cfg)
+		n, err := DownloadAllSessions(client, cfg)
 		if err != nil {
 			return fmt.Errorf("download: %w", err)
 		}
@@ -39,7 +42,7 @@ func RunFullSync(cfg *config.Config) error {
 
 	case "both":
 		fmt.Println("--- Upload ---")
-		stats, err := UploadChanged(cfg, st)
+		stats, err := UploadChanged(client, cfg, st)
 		if err != nil {
 			return fmt.Errorf("upload: %w", err)
 		}
@@ -47,7 +50,7 @@ func RunFullSync(cfg *config.Config) error {
 			stats.Total, stats.Synced, stats.Skipped, stats.Failed)
 
 		fmt.Println("\n--- Download ---")
-		n, err := DownloadAllSessions(cfg)
+		n, err := DownloadAllSessions(client, cfg)
 		if err != nil {
 			return fmt.Errorf("download: %w", err)
 		}

@@ -193,8 +193,9 @@ func runSetup(cmd *cobra.Command, args []string) {
 	// Step 3: Verify credentials (loop until success)
 	fmt.Println()
 	for {
+		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
 		fmt.Print("3. Verifying credentials... ")
-		token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+		_, err := client.GetTenantToken()
 		if err != nil {
 			fmt.Printf("FAILED: %v\n", err)
 			fmt.Print("   Re-enter App ID? (Enter to keep, or type new value): ")
@@ -215,7 +216,7 @@ func runSetup(cmd *cobra.Command, args []string) {
 
 		// Step 4: Find or create root folder
 		fmt.Print("4. Setting up SessionConflux folder... ")
-		folderToken, err := feishu.FindOrCreateFolder(token, "SessionConflux")
+		folderToken, err := client.FindOrCreateFolder("SessionConflux")
 		if err != nil {
 			fmt.Printf("FAILED: %v\n", err)
 		} else {
@@ -295,7 +296,8 @@ func runUpload(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println("Scanning for changed sessions...")
-	stats, err := sync.UploadChanged(cfg, st)
+	client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+	stats, err := sync.UploadChanged(client, cfg, st)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Upload failed: %v\n", err)
 		os.Exit(1)
@@ -320,7 +322,8 @@ func runDownload(cmd *cobra.Command, args []string) {
 	// --all flag
 	if downloadAll {
 		fmt.Println("Downloading all remote sessions...")
-		n, err := sync.DownloadAllSessions(cfg)
+		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+		n, err := sync.DownloadAllSessions(client, cfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 			os.Exit(1)
@@ -331,14 +334,15 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 	// --session flag
 	if downloadSession != "" {
-		sessions, err := sync.ListRemoteSessions(cfg)
+		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+		sessions, err := sync.ListRemoteSessions(client, cfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to list remote sessions: %v\n", err)
 			os.Exit(1)
 		}
 		for _, s := range sessions {
 			if s.Key == downloadSession {
-				if err := sync.DownloadSession(cfg, s); err != nil {
+				if err := sync.DownloadSession(client, s); err != nil {
 					fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 					os.Exit(1)
 				}
@@ -352,7 +356,8 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 	// Interactive mode (default): list remote sessions
 	fmt.Println("Fetching remote sessions...")
-	sessions, err := sync.ListRemoteSessions(cfg)
+	client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
+	sessions, err := sync.ListRemoteSessions(client, cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to list remote sessions: %v\n", err)
 		os.Exit(1)

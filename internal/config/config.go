@@ -39,8 +39,8 @@ type Config struct {
 	Compression CompressionConfig `toml:"compression"`
 }
 
-// configPath returns the path to ~/.session-conflux/config.toml.
-func configPath() (string, error) {
+// DefaultPath returns the default config file path (~/.session-conflux/config.toml).
+func DefaultPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home dir: %w", err)
@@ -61,14 +61,18 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Load reads config from ~/.session-conflux/config.toml.
+// Load reads config from the default path.
 // If the file doesn't exist, returns a Config with defaults.
 func Load() (*Config, error) {
-	path, err := configPath()
+	path, err := DefaultPath()
 	if err != nil {
 		return nil, err
 	}
+	return LoadFrom(path)
+}
 
+// LoadFrom reads config from a specific path.
+func LoadFrom(path string) (*Config, error) {
 	cfg := DefaultConfig()
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -82,13 +86,17 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes config to ~/.session-conflux/config.toml.
+// Save writes config to the default path.
 func Save(cfg *Config) error {
-	path, err := configPath()
+	path, err := DefaultPath()
 	if err != nil {
 		return err
 	}
+	return cfg.SaveTo(path)
+}
 
+// SaveTo writes config to a specific path.
+func (c *Config) SaveTo(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
@@ -99,7 +107,7 @@ func Save(cfg *Config) error {
 	}
 	defer f.Close()
 
-	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
+	if err := toml.NewEncoder(f).Encode(c); err != nil {
 		return fmt.Errorf("encode config: %w", err)
 	}
 

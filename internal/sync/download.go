@@ -11,7 +11,7 @@ import (
 	"github.com/yanen-bohoon/session-conflux/internal/compress"
 	"github.com/yanen-bohoon/session-conflux/internal/config"
 	"github.com/yanen-bohoon/session-conflux/internal/feishu"
-	"github.com/yanen-bohoon/session-conflux/internal/parser"
+	"github.com/yanen-bohoon/session-conflux/internal/registry"
 	"github.com/yanen-bohoon/session-conflux/internal/state"
 )
 
@@ -24,19 +24,18 @@ type RemoteSession struct {
 }
 
 // ListRemoteSessions lists all sessions across all machines on Drive.
-func ListRemoteSessions(cfg *config.Config) ([]RemoteSession, error) {
-	token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	if err != nil {
-		return nil, fmt.Errorf("auth: %w", err)
-	}
-
+func ListRemoteSessions(client *feishu.Client, cfg *config.Config) ([]RemoteSession, error) {
 	l1 := cfg.Feishu.FolderToken
 	if l1 == "" {
-		l1, _ = feishu.FindOrCreateFolder(token, "SessionConflux")
+		var err error
+		l1, err = client.FindOrCreateFolder("SessionConflux")
+		if err != nil {
+			return nil, fmt.Errorf("auth: %w", err)
+		}
 	}
 
 	// List L2: hostname folders
-	hosts, err := feishu.ListFiles(token, l1)
+	hosts, err := client.ListFiles(l1)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,7 @@ func ListRemoteSessions(cfg *config.Config) ([]RemoteSession, error) {
 			continue
 		}
 		// List L3: baseline + incremental under each host
-		l3Files, err := feishu.ListFiles(token, host.Token)
+		l3Files, err := client.ListFiles(host.Token)
 		if err != nil {
 			continue
 		}
@@ -56,7 +55,7 @@ func ListRemoteSessions(cfg *config.Config) ([]RemoteSession, error) {
 				continue
 			}
 			// List files in baseline / incremental
-			files, err := feishu.ListFiles(token, l3.Token)
+			files, err := client.ListFiles(l3.Token)
 			if err != nil {
 				continue
 			}
@@ -88,12 +87,7 @@ func ListRemoteSessions(cfg *config.Config) ([]RemoteSession, error) {
 
 // DownloadAllSessions downloads from all machines: baseline bundles + incremental files.
 // Skips the local machine to avoid downloading its own sessions back.
-func DownloadAllSessions(cfg *config.Config) (int, error) {
-	token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	if err != nil {
-		return 0, fmt.Errorf("auth: %w", err)
-	}
-
+func DownloadAllSessions(client *feishu.Client, cfg *config.Config) (int, error) {
 	st, err := state.Load()
 	if err != nil {
 		return 0, fmt.Errorf("load state: %w", err)
@@ -103,9 +97,13 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 
 	l1 := cfg.Feishu.FolderToken
 	if l1 == "" {
-		l1, _ = feishu.FindOrCreateFolder(token, "SessionConflux")
+		var err error
+		l1, err = client.FindOrCreateFolder("SessionConflux")
+		if err != nil {
+			return 0, err
+		}
 	}
-	hosts, err := feishu.ListFiles(token, l1)
+	hosts, err := client.ListFiles(l1)
 	if err != nil {
 		return 0, err
 	}
@@ -127,7 +125,7 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 		fmt.Printf("Machine: %s\n", host.Name)
 
 		// Find baseline and incremental folders
-		l3Files, err := feishu.ListFiles(token, host.Token)
+		l3Files, err := client.ListFiles(host.Token)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  WARN: list %s contents: %v\n", host.Name, err)
 			continue
@@ -138,10 +136,10 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 			}
 			switch l3.Name {
 			case "baseline":
-				n := downloadBaseline(token, host.Name, l3.Token, st, now)
+				n := downloadBaseline(client, host.Name, l3.Token, st, now)
 				downloaded += n
 			case "incremental":
-				n := downloadIncremental(token, host.Name, l3.Token, st, now)
+				n := downloadIncremental(client, host.Name, l3.Token, st, now)
 				downloaded += n
 			}
 		}
@@ -151,8 +149,8 @@ func DownloadAllSessions(cfg *config.Config) (int, error) {
 	return downloaded, nil
 }
 
-func downloadBaseline(token, hostname, folderToken string, st *state.Store, now string) int {
-	files, err := feishu.ListFiles(token, folderToken)
+func downloadBaseline(client *feishu.Client, hostname, folderToken string, st *state.Store, now string) int {
+	files, err := client.ListFiles(folderToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list baseline: %v\n", err)
 		return 0
@@ -176,7 +174,7 @@ func downloadBaseline(token, hostname, folderToken string, st *state.Store, now 
 		return 0
 	}
 
-	allData, err := readBundlePartsData(token, folderToken, files)
+	allData, err := readBundlePartsData(client, folderToken, files)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: read bundle parts: %v\n", err)
 		return 0
@@ -213,7 +211,7 @@ func downloadBaseline(token, hostname, folderToken string, st *state.Store, now 
 	return n
 }
 
-func readBundlePartsData(token, folderToken string, files []feishu.FileInfo) ([]byte, error) {
+func readBundlePartsData(client *feishu.Client, folderToken string, files []feishu.FileInfo) ([]byte, error) {
 	// Look for bundle.tar.zst or bundle.tar.zst.partNN
 	var parts []string
 	for _, f := range files {
@@ -231,7 +229,7 @@ func readBundlePartsData(token, folderToken string, files []feishu.FileInfo) ([]
 		}
 
 		fmt.Printf("\r  Baseline: [%d/%d] %s", i+1, len(parts), name)
-		data, err := feishu.DownloadFile(token, ft, func(downloaded, total int64) {
+		data, err := client.DownloadFile(ft, func(downloaded, total int64) {
 			fmt.Printf("\r  Baseline: [%d/%d] %s  %s / %s",
 				i+1, len(parts), name,
 				formatBytes(downloaded), formatBytesOrUnknown(total))
@@ -246,8 +244,8 @@ func readBundlePartsData(token, folderToken string, files []feishu.FileInfo) ([]
 	return allData, nil
 }
 
-func downloadIncremental(token, hostname, folderToken string, st *state.Store, now string) int {
-	files, err := feishu.ListFiles(token, folderToken)
+func downloadIncremental(client *feishu.Client, hostname, folderToken string, st *state.Store, now string) int {
+	files, err := client.ListFiles(folderToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list incremental: %v\n", err)
 		return 0
@@ -288,7 +286,7 @@ func downloadIncremental(token, hostname, folderToken string, st *state.Store, n
 		label := fmt.Sprintf("%s/%s.jsonl.zst", agent, sessionID)
 		fmt.Printf("\r  Incremental: [%d/%d] %s",
 			sessionCount+skipped+1, total, label)
-		data, err := feishu.DownloadFile(token, f.Token, func(downloaded, totalBytes int64) {
+		data, err := client.DownloadFile(f.Token, func(downloaded, totalBytes int64) {
 			fmt.Printf("\r  Incremental: [%d/%d] %s  %s / %s",
 				sessionCount+skipped+1, total, label,
 				formatBytes(downloaded), formatBytesOrUnknown(totalBytes))
@@ -347,13 +345,9 @@ func parseBundleEntry(name string) (hostname, agent, sessionID string) {
 	return
 }
 
-func DownloadSession(cfg *config.Config, session RemoteSession) error {
-	token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	if err != nil {
-		return fmt.Errorf("auth: %w", err)
-	}
+func DownloadSession(client *feishu.Client, session RemoteSession) error {
 	fmt.Printf("  Downloading %s...", session.Key)
-	data, err := feishu.DownloadFile(token, session.FileToken, func(downloaded, total int64) {
+	data, err := client.DownloadFile(session.FileToken, func(downloaded, total int64) {
 		fmt.Printf("\r  Downloading %s  %s / %s",
 			session.Key,
 			formatBytes(downloaded), formatBytesOrUnknown(total))
@@ -375,9 +369,9 @@ func DownloadSession(cfg *config.Config, session RemoteSession) error {
 }
 
 func findAgentDir(agent string) string {
-	for _, def := range parser.AllAgents {
+	for _, def := range registry.AllAgents {
 		if def.Type == agent {
-			dirs := parser.ResolveAgentDirs(def)
+			dirs := registry.ResolveAgentDirs(def)
 			if len(dirs) > 0 {
 				return dirs[0]
 			}

@@ -24,16 +24,27 @@ type Store struct {
 	entries map[string]Entry // key -> entry
 }
 
-// Load reads state from ~/.session-conflux/state.json.
-// Returns an empty store if the file doesn't exist.
-func Load() (*Store, error) {
+// DefaultPath returns the default state file path (~/.session-conflux/state.json).
+func DefaultPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("home dir: %w", err)
+		return "", fmt.Errorf("home dir: %w", err)
 	}
-	dir := filepath.Join(home, ".session-conflux")
-	path := filepath.Join(dir, "state.json")
+	return filepath.Join(home, ".session-conflux", "state.json"), nil
+}
 
+// Load reads state from the default path.
+// Returns an empty store if the file doesn't exist.
+func Load() (*Store, error) {
+	path, err := DefaultPath()
+	if err != nil {
+		return nil, err
+	}
+	return LoadFrom(path)
+}
+
+// LoadFrom reads state from a specific path.
+func LoadFrom(path string) (*Store, error) {
 	s := &Store{
 		path:    path,
 		entries: make(map[string]Entry),

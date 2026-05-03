@@ -1,8 +1,6 @@
 package compress
 
 import (
-	"bytes"
-
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -27,20 +25,4 @@ func Decompress(data []byte) ([]byte, error) {
 	}
 	defer decoder.Close()
 	return decoder.DecodeAll(data, nil)
-}
-
-// CompressToBuffer compresses data into the provided buffer (avoids alloc).
-func CompressToBuffer(data []byte, level int, buf *bytes.Buffer) error {
-	if level < 1 || level > 22 {
-		level = 3
-	}
-	encoder, err := zstd.NewWriter(buf, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
-	if err != nil {
-		return err
-	}
-	if _, err := encoder.Write(data); err != nil {
-		encoder.Close()
-		return err
-	}
-	return encoder.Close()
 }

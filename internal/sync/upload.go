@@ -11,7 +11,7 @@ import (
 	"github.com/yanen-bohoon/session-conflux/internal/compress"
 	"github.com/yanen-bohoon/session-conflux/internal/config"
 	"github.com/yanen-bohoon/session-conflux/internal/feishu"
-	"github.com/yanen-bohoon/session-conflux/internal/parser"
+	"github.com/yanen-bohoon/session-conflux/internal/registry"
 	"github.com/yanen-bohoon/session-conflux/internal/state"
 )
 
@@ -21,15 +21,11 @@ type UploadStats struct {
 	Total, Synced, Skipped, Failed int
 }
 
-func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
-	token, err := feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	if err != nil {
-		return nil, fmt.Errorf("auth: %w", err)
-	}
-
+func UploadChanged(client *feishu.Client, cfg *config.Config, st *state.Store) (*UploadStats, error) {
 	l1 := cfg.Feishu.FolderToken
 	if l1 == "" {
-		l1, err = feishu.FindOrCreateFolder(token, "SessionConflux")
+		var err error
+		l1, err = client.FindOrCreateFolder("SessionConflux")
 		if err != nil {
 			return nil, fmt.Errorf("L1 folder: %w", err)
 		}
@@ -42,22 +38,22 @@ func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
 		exclude[a] = true
 	}
 
-	l2, err := feishu.FindOrCreateFolder(token, hostname, l1)
+	l2, err := client.FindOrCreateFolder(hostname, l1)
 	if err != nil {
 		return nil, fmt.Errorf("L2 folder: %w", err)
 	}
 
-	baseline, err := feishu.FindOrCreateFolder(token, "baseline", l2)
+	baseline, err := client.FindOrCreateFolder("baseline", l2)
 	if err != nil {
 		return nil, fmt.Errorf("baseline folder: %w", err)
 	}
 
 	// Check if baseline already has bundle files
-	hasBaseline := baselineHasFiles(token, baseline)
+	hasBaseline := baselineHasFiles(client, baseline)
 
 	if !hasBaseline {
 		fmt.Println("First run — uploading baseline bundle...")
-		n, err := uploadBaseline(token, baseline, hostname, exclude, cfg.Compression.Level)
+		n, err := uploadBaseline(client, baseline, hostname, exclude, cfg.Compression.Level)
 		if err != nil {
 			return nil, err
 		}
@@ -65,17 +61,17 @@ func UploadChanged(cfg *config.Config, st *state.Store) (*UploadStats, error) {
 	}
 
 	// Incremental
-	incr, err := feishu.FindOrCreateFolder(token, "incremental", l2)
+	incr, err := client.FindOrCreateFolder("incremental", l2)
 	if err != nil {
 		return nil, fmt.Errorf("incremental folder: %w", err)
 	}
 
 	fmt.Println("Scanning for changes...")
-	return uploadIncremental(token, incr, hostname, exclude, st, cfg)
+	return uploadIncremental(client, incr, hostname, exclude, st, cfg.Compression.Level)
 }
 
-func baselineHasFiles(token, folderToken string) bool {
-	files, _ := feishu.ListFiles(token, folderToken)
+func baselineHasFiles(client *feishu.Client, folderToken string) bool {
+	files, _ := client.ListFiles(folderToken)
 	for _, f := range files {
 		if f.Name == bundle.BundleFileName || strings.HasPrefix(f.Name, bundle.BundleFileName+".") {
 			return true
@@ -92,11 +88,11 @@ type fileEntry struct {
 
 func discoverFiles(exclude map[string]bool) []fileEntry {
 	var out []fileEntry
-	for _, def := range parser.AllAgents {
+	for _, def := range registry.AllAgents {
 		if exclude[def.Type] {
 			continue
 		}
-		for _, dir := range parser.ResolveAgentDirs(def) {
+		for _, dir := range registry.ResolveAgentDirs(def) {
 			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
@@ -111,11 +107,11 @@ func discoverFiles(exclude map[string]bool) []fileEntry {
 					name := info.Name()
 					sid := name[:len(name)-6]
 					out = append(out, fileEntry{
-						Path:  path,
-						Agent: def.Type,
+						Path:      path,
+						Agent:     def.Type,
 						SessionID: sid,
-						Size:  info.Size(),
-						Mtime: info.ModTime().UnixNano(),
+						Size:      info.Size(),
+						Mtime:     info.ModTime().UnixNano(),
 					})
 				}
 				return nil
@@ -125,7 +121,7 @@ func discoverFiles(exclude map[string]bool) []fileEntry {
 	return out
 }
 
-func uploadBaseline(token, baselineToken, hostname string, exclude map[string]bool, level int) (int, error) {
+func uploadBaseline(client *feishu.Client, baselineToken, hostname string, exclude map[string]bool, level int) (int, error) {
 	files := discoverFiles(exclude)
 	fmt.Printf("Packing %d files...\n", len(files))
 
@@ -151,13 +147,13 @@ func uploadBaseline(token, baselineToken, hostname string, exclude map[string]bo
 	fmt.Printf("  archive: %d KB\n", len(archive)/1024)
 
 	// Clean old parts
-	oldFiles, _ := feishu.ListFiles(token, baselineToken)
+	oldFiles, _ := client.ListFiles(baselineToken)
 	for _, f := range oldFiles {
-		feishu.DeleteFile(token, f.Token)
+		client.DeleteFile(f.Token)
 	}
 
 	if len(archive) <= maxChunkSize {
-		_, err = feishu.UploadFile(token, baselineToken, bundle.BundleFileName, archive)
+		_, err = client.UploadFile(baselineToken, bundle.BundleFileName, archive)
 		if err != nil {
 			return 0, fmt.Errorf("upload: %w", err)
 		}
@@ -172,7 +168,7 @@ func uploadBaseline(token, baselineToken, hostname string, exclude map[string]bo
 				end = len(archive)
 			}
 			name := fmt.Sprintf("%s.part%02d", bundle.BundleFileName, i+1)
-			_, err = feishu.UploadFile(token, baselineToken, name, archive[start:end])
+			_, err = client.UploadFile(baselineToken, name, archive[start:end])
 			if err != nil {
 				return 0, fmt.Errorf("upload part %d: %w", i+1, err)
 			}
@@ -183,7 +179,7 @@ func uploadBaseline(token, baselineToken, hostname string, exclude map[string]bo
 	return len(files), nil
 }
 
-func uploadIncremental(token, incrToken, hostname string, exclude map[string]bool, st *state.Store, cfg *config.Config) (*UploadStats, error) {
+func uploadIncremental(client *feishu.Client, incrToken, hostname string, exclude map[string]bool, st *state.Store, level int) (*UploadStats, error) {
 	files := discoverFiles(exclude)
 	stats := &UploadStats{Total: len(files)}
 
@@ -202,7 +198,7 @@ func uploadIncremental(token, incrToken, hostname string, exclude map[string]boo
 			continue
 		}
 
-		compressed, err := compress.Compress(data, cfg.Compression.Level)
+		compressed, err := compress.Compress(data, level)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  WARN: compress %s: %v\n", key, err)
 			stats.Failed++
@@ -213,13 +209,12 @@ func uploadIncremental(token, incrToken, hostname string, exclude map[string]boo
 		fileName := filepath.Join(f.Agent, f.SessionID+".jsonl.zst")
 
 		for attempt := 1; attempt <= 3; attempt++ {
-			_, err = feishu.UploadFile(token, incrToken, fileName, compressed)
+			_, err = client.UploadFile(incrToken, fileName, compressed)
 			if err == nil {
 				break
 			}
 			if attempt < 3 {
 				time.Sleep(time.Duration(1<<uint(attempt-1)) * time.Second)
-				token, _ = feishu.GetTenantToken(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
 			}
 		}
 		if err != nil {
