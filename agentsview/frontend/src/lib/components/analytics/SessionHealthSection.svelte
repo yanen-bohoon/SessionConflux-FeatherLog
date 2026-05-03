@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { scoreToGrade } from "../../utils/grade.js";
   import GradeDistribution
     from "./GradeDistribution.svelte";
@@ -18,17 +19,17 @@
 {#if visible && signals}
   <div class="health-section">
     <div class="section-header">
-      <h3 class="section-title">Session Health</h3>
+      <h3 class="section-title">{t("analytics.session_health")}</h3>
       <span class="section-subtitle">
-        {signals.scored_sessions} scored
+        {signals.scored_sessions} {t("analytics.scored")}
         &middot;
-        {signals.unscored_sessions} unscored
+        {signals.unscored_sessions} {t("analytics.unscored")}
       </span>
     </div>
 
     <div class="health-summary-cards">
       <div class="card">
-        <span class="card-label">Avg Score</span>
+        <span class="card-label">{t("analytics.avg_score")}</span>
         <span class="card-value">
           {signals.avg_health_score != null
             ? Math.round(signals.avg_health_score)
@@ -36,12 +37,12 @@
         </span>
         {#if signals.avg_health_score != null}
           <span class="card-sub">
-            Grade {scoreToGrade(signals.avg_health_score)}
+            {t("analytics.grade", { grade: scoreToGrade(signals.avg_health_score) })}
           </span>
         {/if}
       </div>
       <div class="card">
-        <span class="card-label">Completed</span>
+        <span class="card-label">{t("analytics.completed")}</span>
         <span class="card-value" style:color="var(--accent-green)">
           {#if signals.scored_sessions > 0}
             {Math.round(
@@ -55,11 +56,11 @@
           {/if}
         </span>
         <span class="card-sub">
-          {signals.outcome_distribution?.completed ?? 0} sessions
+          {t("analytics.sessions_label", { n: signals.outcome_distribution?.completed ?? 0 })}
         </span>
       </div>
       <div class="card">
-        <span class="card-label">Errored</span>
+        <span class="card-label">{t("analytics.errored")}</span>
         <span class="card-value" style:color="var(--accent-red)">
           {#if signals.scored_sessions > 0}
             {Math.round(
@@ -73,11 +74,11 @@
           {/if}
         </span>
         <span class="card-sub">
-          {signals.outcome_distribution?.errored ?? 0} sessions
+          {t("analytics.sessions_label", { n: signals.outcome_distribution?.errored ?? 0 })}
         </span>
       </div>
       <div class="card">
-        <span class="card-label">Tool Failures</span>
+        <span class="card-label">{t("analytics.tool_failures")}</span>
         <span class="card-value" style:color="var(--accent-amber)">
           {#if signals.scored_sessions > 0}
             {Math.round(signals.tool_health.failure_rate)}%
@@ -86,11 +87,11 @@
           {/if}
         </span>
         <span class="card-sub">
-          {signals.tool_health.sessions_with_failures} sessions
+          {t("analytics.sessions_label", { n: signals.tool_health.sessions_with_failures })}
         </span>
       </div>
       <div class="card">
-        <span class="card-label">Compactions</span>
+        <span class="card-label">{t("analytics.compactions")}</span>
         <span
           class="card-value"
           style:color={signals.context_health
@@ -103,9 +104,9 @@
         <span class="card-sub">
           {#if signals.context_health.sessions_with_mid_task_compaction > 0}
             {signals.context_health.sessions_with_mid_task_compaction}
-            mid-task &middot;
+            {t("analytics.mid_task")} &middot;
           {/if}
-          avg {signals.context_health.avg_compaction_count.toFixed(1)}/session
+          {t("analytics.avg_per_session", { n: signals.context_health.avg_compaction_count.toFixed(1) })}
         </span>
       </div>
     </div>
@@ -126,14 +127,14 @@
       </div>
       <div class="chart-panel">
         <div class="mini-table">
-          <div class="table-title">By Agent</div>
+          <div class="table-title">{t("analytics.by_agent_table")}</div>
           <table>
             <thead>
               <tr>
-                <th>Agent</th>
-                <th class="num">Sessions</th>
-                <th class="num">Avg Score</th>
-                <th class="num">Completed</th>
+                <th>{t("analytics.col_agent")}</th>
+                <th class="num">{t("analytics.sessions")}</th>
+                <th class="num">{t("analytics.col_avg_score")}</th>
+                <th class="num">{t("analytics.col_completed")}</th>
               </tr>
             </thead>
             <tbody>
@@ -159,14 +160,14 @@
       </div>
       <div class="chart-panel">
         <div class="mini-table">
-          <div class="table-title">By Project</div>
+          <div class="table-title">{t("analytics.by_project_table")}</div>
           <table>
             <thead>
               <tr>
-                <th>Project</th>
-                <th class="num">Sessions</th>
-                <th class="num">Avg Score</th>
-                <th class="num">Completed</th>
+                <th>{t("analytics.col_project")}</th>
+                <th class="num">{t("analytics.sessions")}</th>
+                <th class="num">{t("analytics.col_avg_score")}</th>
+                <th class="num">{t("analytics.col_completed")}</th>
               </tr>
             </thead>
             <tbody>

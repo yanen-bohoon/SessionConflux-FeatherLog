@@ -2,6 +2,7 @@
   import { analytics } from "../../stores/analytics.svelte.js";
   import { sessions } from "../../stores/sessions.svelte.js";
   import { router } from "../../stores/router.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { formatTokenCount } from "../../utils/format.js";
   import { normalizeMessagePreview } from "../../utils/messages.js";
 
@@ -42,21 +43,21 @@
 
 <div class="top-sessions-container">
   <div class="top-header">
-    <h3 class="chart-title">Top Sessions</h3>
+    <h3 class="chart-title">{t("analytics.top_sessions")}</h3>
     <div class="metric-toggle">
       <button
         class="toggle-btn"
         class:active={analytics.topMetric === "messages"}
         onclick={() => analytics.setTopMetric("messages")}
       >
-        By Messages
+        {t("analytics.by_messages")}
       </button>
       <button
         class="toggle-btn"
         class:active={analytics.topMetric === "duration"}
         onclick={() => analytics.setTopMetric("duration")}
       >
-        By Duration
+        {t("analytics.by_duration")}
       </button>
       {#if supportsOutputTokens}
         <button
@@ -64,7 +65,7 @@
           class:active={analytics.topMetric === "output_tokens"}
           onclick={() => analytics.setTopMetric("output_tokens")}
         >
-          By Output Tokens
+          {t("analytics.by_output_tokens")}
         </button>
       {/if}
     </div>
@@ -77,7 +78,7 @@
         class="retry-btn"
         onclick={() => analytics.fetchTopSessions()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if analytics.topSessions && analytics.topSessions.sessions.length > 0}
@@ -112,7 +113,7 @@
       {/each}
     </div>
   {:else}
-    <div class="empty">No sessions in range</div>
+    <div class="empty">{t("analytics.no_sessions_in_range")}</div>
   {/if}
 </div>
 

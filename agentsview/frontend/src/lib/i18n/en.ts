@@ -421,6 +421,60 @@ export const en: Record<string, string> = {
   // Analytics — Activity Timeline
   'analytics.tooltip_user_assistant': 'user: {user} / assistant: {assistant}',
 
+  // Analytics — Top Sessions
+  'analytics.top_sessions': 'Top Sessions',
+  'analytics.by_messages': 'By Messages',
+  'analytics.by_duration': 'By Duration',
+  'analytics.by_output_tokens': 'By Output Tokens',
+  'analytics.no_sessions_in_range': 'No sessions in range',
+
+  // Analytics — Agent Comparison
+  'analytics.agent_comparison': 'Agent Comparison',
+  'analytics.col_agent': 'Agent',
+  'analytics.col_tool_calls': 'Tool Calls',
+  'analytics.col_top_categories': 'Top Categories',
+  'analytics.no_comparison_data': 'No comparison data (need 2+ agents)',
+
+  // Analytics — Session Health
+  'analytics.session_health': 'Session Health',
+  'analytics.scored': 'scored',
+  'analytics.unscored': 'unscored',
+  'analytics.messages_label': '{n} messages',
+  'analytics.sessions_label': '{n} sessions',
+  'analytics.avg_score': 'Avg Score',
+  'analytics.grade': 'Grade {grade}',
+  'analytics.completed': 'Completed',
+  'analytics.errored': 'Errored',
+  'analytics.tool_failures': 'Tool Failures',
+  'analytics.compactions': 'Compactions',
+  'analytics.mid_task': 'mid-task',
+  'analytics.avg_per_session': 'avg {n}/session',
+  'analytics.by_agent_table': 'By Agent',
+  'analytics.by_project_table': 'By Project',
+  'analytics.col_completed': 'Completed',
+  'analytics.col_avg_score': 'Avg Score',
+  'analytics.col_project': 'Project',
+
+  // Analytics — Grade Distribution
+  'analytics.grade_distribution': 'Grade Distribution',
+
+  // Analytics — Health Trend
+  'analytics.health_trend': 'Health Trend',
+  'analytics.no_scored_sessions': 'no scored sessions',
+  'analytics.health_caption': 'Daily average health score · bar color = grade',
+
+  // Analytics — Outcome Distribution
+  'analytics.outcome_distribution': 'Outcome Distribution',
+  'analytics.outcome_completed': 'Completed',
+  'analytics.outcome_abandoned': 'Abandoned',
+  'analytics.outcome_errored': 'Errored',
+  'analytics.outcome_unknown': 'Unknown',
+  'analytics.no_outcome_data': 'No data',
+
+  // Analytics — Project Breakdown
+  'analytics.project_breakdown': 'Projects',
+  'analytics.no_project_data': 'No project data',
+
   // Day names
   'day.mon': 'Mon',
   'day.tue': 'Tue',

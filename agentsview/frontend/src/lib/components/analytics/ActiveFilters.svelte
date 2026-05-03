@@ -15,13 +15,13 @@
   );
 
   const DAY_LABELS = [
-    "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+    t("day.mon"), t("day.tue"), t("day.wed"), t("day.thu"), t("day.fri"), t("day.sat"), t("day.sun"),
   ];
 
   const dateLabel = $derived.by(() => {
     if (!analytics.selectedDate) return "";
     const d = new Date(analytics.selectedDate + "T00:00:00");
-    return d.toLocaleDateString("en", {
+    return d.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",

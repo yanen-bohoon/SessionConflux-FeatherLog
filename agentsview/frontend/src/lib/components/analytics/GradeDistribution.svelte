@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../../i18n/index.js";
   import { getGradeStyle } from "../../utils/grade.js";
 
   interface Props {
@@ -14,7 +15,7 @@
 </script>
 
 <div class="grade-dist">
-  <div class="chart-title">Grade Distribution</div>
+  <div class="chart-title">{t("analytics.grade_distribution")}</div>
   {#each grades as grade}
     {@const count = distribution[grade] ?? 0}
     {@const style = getGradeStyle(grade)}

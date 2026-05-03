@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../../i18n/index.js";
   import { getOutcomeColor } from "../../utils/grade.js";
 
   interface Props {
@@ -6,6 +7,13 @@
   }
 
   let { distribution }: Props = $props();
+
+  const outcomeKeys: Record<string, string> = {
+    completed: "analytics.outcome_completed",
+    abandoned: "analytics.outcome_abandoned",
+    errored: "analytics.outcome_errored",
+    unknown: "analytics.outcome_unknown",
+  };
 
   const outcomes = [
     "completed", "abandoned", "errored", "unknown",
@@ -19,7 +27,7 @@
 </script>
 
 <div class="outcome-dist">
-  <div class="chart-title">Outcome Distribution</div>
+  <div class="chart-title">{t("analytics.outcome_distribution")}</div>
   {#if total > 0}
     <div class="stacked-bar">
       {#each outcomes as outcome}
@@ -29,7 +37,7 @@
             class="segment"
             style:width="{(count / total) * 100}%"
             style:background={getOutcomeColor(outcome)}
-            title="{outcome}: {count}"
+            title="{t(outcomeKeys[outcome]!)}: {count}"
           ></div>
         {/if}
       {/each}
@@ -44,14 +52,14 @@
               style:background={getOutcomeColor(outcome)}
             ></span>
             <span class="legend-text">
-              {outcome} {count}
+              {t(outcomeKeys[outcome]!)} {count}
             </span>
           </div>
         {/if}
       {/each}
     </div>
   {:else}
-    <div class="empty">No data</div>
+    <div class="empty">{t("analytics.no_outcome_data")}</div>
   {/if}
 </div>
 

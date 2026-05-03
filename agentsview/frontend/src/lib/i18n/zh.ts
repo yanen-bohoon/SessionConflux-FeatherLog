@@ -425,6 +425,60 @@ export const zh: Record<string, string> = {
   // Analytics — Activity Timeline
   'analytics.tooltip_user_assistant': '用户: {user} / 助手: {assistant}',
 
+  // Analytics — Top Sessions
+  'analytics.top_sessions': '热门会话',
+  'analytics.by_messages': '按消息数',
+  'analytics.by_duration': '按时长',
+  'analytics.by_output_tokens': '按输出Token',
+  'analytics.no_sessions_in_range': '该时段无会话',
+
+  // Analytics — Agent Comparison
+  'analytics.agent_comparison': 'Agent 对比',
+  'analytics.col_agent': 'Agent',
+  'analytics.col_tool_calls': '工具调用',
+  'analytics.col_top_categories': '主要类别',
+  'analytics.no_comparison_data': '无可对比数据（需 2+ 个 Agent）',
+
+  // Analytics — Session Health
+  'analytics.session_health': '会话健康度',
+  'analytics.scored': '已评分',
+  'analytics.unscored': '未评分',
+  'analytics.messages_label': '{n} 条消息',
+  'analytics.sessions_label': '{n} 个会话',
+  'analytics.avg_score': '平均分',
+  'analytics.grade': '等级 {grade}',
+  'analytics.completed': '已完成',
+  'analytics.errored': '出错',
+  'analytics.tool_failures': '工具失败',
+  'analytics.compactions': '压缩次数',
+  'analytics.mid_task': '任务中途',
+  'analytics.avg_per_session': '平均 {n}/会话',
+  'analytics.by_agent_table': '按 Agent',
+  'analytics.by_project_table': '按项目',
+  'analytics.col_completed': '已完成',
+  'analytics.col_avg_score': '平均分',
+  'analytics.col_project': '项目',
+
+  // Analytics — Grade Distribution
+  'analytics.grade_distribution': '等级分布',
+
+  // Analytics — Health Trend
+  'analytics.health_trend': '健康趋势',
+  'analytics.no_scored_sessions': '无已评分会话',
+  'analytics.health_caption': '每日平均健康分 · 柱色 = 等级',
+
+  // Analytics — Outcome Distribution
+  'analytics.outcome_distribution': '结果分布',
+  'analytics.outcome_completed': '已完成',
+  'analytics.outcome_abandoned': '已放弃',
+  'analytics.outcome_errored': '出错',
+  'analytics.outcome_unknown': '未知',
+  'analytics.no_outcome_data': '无数据',
+
+  // Analytics — Project Breakdown
+  'analytics.project_breakdown': '项目',
+  'analytics.no_project_data': '无项目数据',
+
   // 星期
   'day.mon': '周一',
   'day.tue': '周二',
