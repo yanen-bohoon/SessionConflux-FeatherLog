@@ -3,6 +3,7 @@
   import { sessions } from "../../stores/sessions.svelte.js";
   import { router } from "../../stores/router.svelte.js";
   import { ui } from "../../stores/ui.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { formatRelativeTime, truncate } from "../../utils/format.js";
   import { renderMarkdown } from "../../utils/markdown.js";
   import { copyToClipboard } from "../../utils/clipboard.js";
@@ -86,30 +87,26 @@
     <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" class="pin-icon">
       <path d="M4.146.146A.5.5 0 014.5 0h7a.5.5 0 01.5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 01-.5.5H8.5v5.5a.5.5 0 01-1 0V10H3.5a.5.5 0 01-.5-.5c0-.973.64-1.725 1.17-2.189A6 6 0 015 6.708V2.277a3 3 0 01-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 01.146-.354z"/>
     </svg>
-    <h2>Pinned Messages</h2>
+    <h2>{t("pinned.title")}</h2>
     {#if pins.pins.length > 0}
       <span class="pin-count">{pins.pins.length}</span>
     {/if}
   </div>
 
   {#if pins.loading}
-    <div class="loading-state">Loading pins...</div>
+    <div class="loading-state">{t("pinned.loading")}</div>
   {:else if pins.pins.length === 0 && sessions.filters.project}
     <div class="empty-state">
-      <p class="empty-title">No pinned messages for this project</p>
-      <p class="empty-desc">
-        Try selecting a different project or clear the project filter.
-      </p>
+      <p class="empty-title">{t("pinned.empty_project")}</p>
+      <p class="empty-desc">{t("pinned.empty_project_desc")}</p>
     </div>
   {:else if pins.pins.length === 0}
     <div class="empty-state">
       <svg width="40" height="40" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
         <path d="M4.146.146A.5.5 0 014.5 0h7a.5.5 0 01.5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 01-.5.5H8.5v5.5a.5.5 0 01-1 0V10H3.5a.5.5 0 01-.5-.5c0-.973.64-1.725 1.17-2.189A6 6 0 015 6.708V2.277a3 3 0 01-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 01.146-.354z"/>
       </svg>
-      <p class="empty-title">No pinned messages</p>
-      <p class="empty-desc">
-        Pin messages from any session by clicking the pin icon in the message header.
-      </p>
+      <p class="empty-title">{t("pinned.empty")}</p>
+      <p class="empty-desc">{t("pinned.empty_desc")}</p>
     </div>
   {:else}
     <div class="pin-list">
@@ -149,7 +146,7 @@
             <button
               class="pin-card-meta"
               onclick={() => navigateToPin(pin.session_id, pin.ordinal)}
-              title="Go to message"
+              title={t("pinned.go_to_msg")}
             >
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8.636 3.5a.5.5 0 00-.5-.5H1.5A1.5 1.5 0 000 4.5v10A1.5 1.5 0 001.5 16h10a1.5 1.5 0 001.5-1.5V7.864a.5.5 0 00-1 0V14.5a.5.5 0 01-.5.5h-10a.5.5 0 01-.5-.5v-10a.5.5 0 01.5-.5h6.636a.5.5 0 00.5-.5z"/>
@@ -163,12 +160,12 @@
                   class="expand-btn"
                   onclick={() => toggleExpand(pin.id)}
                 >
-                  {isExpanded ? "Collapse" : "Expand"}
+                  {isExpanded ? t("pinned.collapse") : t("pinned.expand")}
                 </button>
               {/if}
               <button
                 class="copy-btn"
-                title="Copy message"
+                title={t("pinned.copy_msg")}
                 onclick={() => handleCopy(pin.id, pin.content)}
               >
                 {#if copiedId === pin.id}
@@ -184,7 +181,7 @@
               </button>
               <button
                 class="unpin-btn"
-                title="Unpin"
+                title={t("pinned.unpin")}
                 onclick={() => pins.unpin(pin.session_id, pin.message_id)}
               >
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">

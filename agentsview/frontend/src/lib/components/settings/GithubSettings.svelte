@@ -1,6 +1,7 @@
 <script lang="ts">
   import SettingsSection from "./SettingsSection.svelte";
   import { settings } from "../../stores/settings.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { setGithubConfig } from "../../api/client.js";
 
   let tokenInput: string = $state("");
@@ -16,10 +17,10 @@
     try {
       await setGithubConfig(tokenInput.trim());
       tokenInput = "";
-      success = "GitHub token saved.";
+      success = t("github.saved");
       await settings.load();
     } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to save token";
+      error = e instanceof Error ? e.message : t("github.failed");
     } finally {
       saving = false;
     }
@@ -27,13 +28,13 @@
 </script>
 
 <SettingsSection
-  title="GitHub Integration"
-  description="Token used for publishing sessions as GitHub Gists."
+  title={t("github.title")}
+  description={t("github.desc")}
 >
   <div class="status-row">
-    <span class="status-label">Status</span>
+    <span class="status-label">{t("github.status")}</span>
     <span class="status-value" class:configured={settings.githubConfigured}>
-      {settings.githubConfigured ? "Configured" : "Not configured"}
+      {settings.githubConfigured ? t("github.configured") : t("github.not_configured")}
     </span>
   </div>
 
@@ -49,7 +50,7 @@
       disabled={saving || !tokenInput.trim()}
       onclick={handleSave}
     >
-      {saving ? "Saving..." : "Save token"}
+      {saving ? t("github.saving") : t("github.save_token")}
     </button>
   </div>
 

@@ -35,7 +35,7 @@
   import { setupVisibilityHealthCheck } from "./lib/utils/health.js";
   import { registerShortcuts } from "./lib/utils/keyboard.js";
   import { shouldAutoSwitchTranscriptModeToNormal } from "./lib/utils/transcript-mode.js";
-  import { registerLocale, setLocale, t } from "./lib/i18n/index.js";
+  import { registerLocale, initLocale, setLocale, t } from "./lib/i18n/index.js";
   import { zh } from "./lib/i18n/zh.js";
   import { en } from "./lib/i18n/en.js";
   registerLocale("zh", zh);
@@ -44,7 +44,7 @@
   const savedLocale = (() => {
     try { return localStorage.getItem("agentsview-locale"); } catch { return null; }
   })();
-  setLocale(savedLocale === "zh" ? "zh" : "en");
+  initLocale(savedLocale === "zh" ? "zh" : "en");
 
   let globalAuthToken: string = $state("");
 

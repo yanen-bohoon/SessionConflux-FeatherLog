@@ -42,14 +42,14 @@
         class:active={getLocale() === "en"}
         onclick={() => { setLocale("en"); }}
       >
-        English
+        {t("appearance.locale_en")}
       </button>
       <button
         class="option-btn"
         class:active={getLocale() === "zh"}
         onclick={() => { setLocale("zh"); }}
       >
-        中文
+        {t("appearance.locale_zh")}
       </button>
     </div>
   </div>

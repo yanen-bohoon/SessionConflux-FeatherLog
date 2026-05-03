@@ -23,6 +23,7 @@
   import SessionFilterControl from "../filters/SessionFilterControl.svelte";
   import SessionActiveFilters from "../filters/SessionActiveFilters.svelte";
   import FilterDropdown from "./FilterDropdown.svelte";
+  import { t } from "../../i18n/index.js";
 
   const REFRESH_MS = 5 * 60 * 1000;
   let refreshTimer: ReturnType<typeof setInterval> | undefined;
@@ -281,7 +282,7 @@
       />
 
       <FilterDropdown
-        label="Project"
+        label={t("usage.label_project")}
         items={projectItems}
         excludedCsv={usage.excludedProjects}
         onToggle={(name) => usage.toggleProject(name)}
@@ -291,7 +292,7 @@
       />
 
       <FilterDropdown
-        label="Model"
+        label={t("usage.label_model")}
         items={modelItems}
         excludedCsv={usage.selectedModels}
         mode="include"
@@ -304,8 +305,8 @@
       <button
         class="refresh-btn"
         onclick={() => usage.fetchAll()}
-        title="Refresh"
-        aria-label="Refresh usage data"
+        title={t("usage.refresh_title")}
+        aria-label={t("usage.refresh_aria")}
       >
         <svg
           width="14"

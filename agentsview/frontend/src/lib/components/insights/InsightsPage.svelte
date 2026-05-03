@@ -3,6 +3,7 @@
   import { insights } from "../../stores/insights.svelte.js";
   import { sessions } from "../../stores/sessions.svelte.js";
   import { renderMarkdown } from "../../utils/markdown.js";
+  import { t } from "../../i18n/index.js";
   import type { InsightType, AgentName } from "../../api/types.js";
   import ProjectTypeahead from "../layout/ProjectTypeahead.svelte";
 
@@ -137,10 +138,10 @@
     from: string,
     to: string,
   ): string {
-    if (type === "agent_analysis") return "Agent Analysis";
+    if (type === "agent_analysis") return t("insights.mode_agent");
     return from === to
-      ? "Daily Activity"
-      : "Date Range Activity";
+      ? t("insights.mode_daily")
+      : t("insights.mode_range");
   }
 
   function typeShort(
@@ -148,8 +149,8 @@
     from: string,
     to: string,
   ): string {
-    if (type === "agent_analysis") return "Analysis";
-    return from === to ? "Daily" : "Range";
+    if (type === "agent_analysis") return t("insights.type_analysis");
+    return from === to ? t("insights.type_daily") : t("insights.type_range");
   }
 
   onMount(() => {
@@ -166,16 +167,16 @@
         value={uiMode}
         onchange={handleModeChange}
       >
-        <option value="daily_activity">Daily Activity</option>
-        <option value="range_activity">Date Range Activity</option>
-        <option value="agent_analysis">Agent Analysis</option>
+        <option value="daily_activity">{t("insights.mode_daily")}</option>
+        <option value="range_activity">{t("insights.mode_range")}</option>
+        <option value="agent_analysis">{t("insights.mode_agent")}</option>
       </select>
 
       {#if isRangeMode(uiMode)}
         <div class="date-range-group">
           <div class="controls-row">
             <label class="date-label">
-              <span class="date-label-text">From</span>
+              <span class="date-label-text">{t("insights.from")}</span>
               <input
                 type="date"
                 class="ctrl date-ctrl"
@@ -184,7 +185,7 @@
               />
             </label>
             <label class="date-label">
-              <span class="date-label-text">To</span>
+              <span class="date-label-text">{t("insights.to")}</span>
               <input
                 type="date"
                 class="ctrl date-ctrl"
@@ -194,8 +195,8 @@
             </label>
           </div>
           <div class="presets-row">
-            <button class="preset-btn" onclick={() => setPreset(6)}>Last 7 days</button>
-            <button class="preset-btn" onclick={() => setPreset(29)}>Last 30 days</button>
+            <button class="preset-btn" onclick={() => setPreset(6)}>{t("insights.last_7_days")}</button>
+            <button class="preset-btn" onclick={() => setPreset(29)}>{t("insights.last_30_days")}</button>
           </div>
         </div>
       {:else}
@@ -229,7 +230,7 @@
       {#if promptExpanded}
         <textarea
           class="prompt-area"
-          placeholder="Steer the insight with additional context..."
+          placeholder={t("insights.prompt_placeholder")}
           bind:value={insights.promptText}
           rows="3"
         ></textarea>
@@ -239,12 +240,12 @@
         <button
           class="prompt-toggle"
           onclick={() => promptExpanded = !promptExpanded}
-          title={promptExpanded ? "Hide prompt" : "Add custom prompt"}
+          title={promptExpanded ? t("insights.hide_prompt") : t("insights.add_prompt")}
         >
           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
             <path d="M12.146.146a.5.5 0 01.708 0l3 3a.5.5 0 010 .708l-10 10a.5.5 0 01-.168.11l-5 2a.5.5 0 01-.65-.65l2-5a.5.5 0 01.11-.168l10-10zM11.207 2.5L13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 01.5.5v.5h.5a.5.5 0 01.5.5v.5h.293l6.5-6.5zm-9.761 5.175l-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 015.5 13H5v-.5a.5.5 0 00-.5-.5H4v-.5a.5.5 0 00-.468-.498z"/>
           </svg>
-          {promptExpanded ? "Hide" : "Prompt"}
+          {promptExpanded ? t("insights.hide") : t("insights.prompt")}
         </button>
         <button
           class="generate-btn"
@@ -260,7 +261,7 @@
           >
             <path d="M8 1a.5.5 0 01.5.5V6h4.5a.5.5 0 010 1H8.5v4.5a.5.5 0 01-1 0V7H3a.5.5 0 010-1h4.5V1.5A.5.5 0 018 1z" transform="translate(0, 2)"/>
           </svg>
-          Generate
+          {t("insights.generate")}
         </button>
       </div>
     </div>
@@ -272,7 +273,7 @@
             {#if insights.generatingCount > 0}
               <span class="live-dot"></span>
             {/if}
-            Tasks
+            {t("insights.tasks")}
             <span class="active-count">{insights.tasks.length}</span>
           </span>
           {#if insights.generatingCount > 1}
@@ -280,7 +281,7 @@
               class="cancel-all"
               onclick={() => insights.cancelAll()}
             >
-              Stop all
+              {t("insights.stop_all")}
             </button>
           {/if}
         </div>
@@ -310,7 +311,7 @@
                   </span>
                 </span>
                 <span class="task-scope">
-                  {task.project || "global"}
+                  {task.project || t("insights.global")}
                 </span>
               </div>
               {#if task.status === "error"}
@@ -330,7 +331,7 @@
                   insights.cancelTask(task.clientId);
                 }
               }}
-              title={task.status === "error" ? "Dismiss" : "Cancel"}
+              title={task.status === "error" ? t("insights.dismiss") : t("insights.cancel")}
             >
               <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
@@ -344,7 +345,7 @@
       {/if}
 
       {#if insights.loading}
-        <div class="list-status">Loading...</div>
+        <div class="list-status">{t("insights.loading")}</div>
       {:else if insights.items.length === 0 && insights.tasks.length === 0}
         <div class="empty-state">
           <div class="empty-glyph">
@@ -353,13 +354,13 @@
             </svg>
           </div>
           <span class="empty-text">
-            Generate an insight to analyze your sessions
+            {t("insights.empty_generate")}
           </span>
         </div>
       {:else}
         {#if insights.tasks.length > 0}
           <div class="list-section-header completed-header">
-            <span class="section-title">Completed</span>
+            <span class="section-title">{t("insights.completed")}</span>
           </div>
         {/if}
         {#each insights.items as s (s.id)}
@@ -377,7 +378,7 @@
               <span class="row-title">
                 {typeShort(s.type, s.date_from, s.date_to)}
                 <span class="row-scope">
-                  {s.project || "global"}
+                  {s.project || t("insights.global")}
                 </span>
               </span>
               <span class="row-meta">
@@ -405,7 +406,7 @@
               class:badge-red={task.status === "error"}
               class:badge-blue={task.status !== "error"}
             >
-              {task.status === "error" ? "Error" : "Generating"}
+              {task.status === "error" ? t("insights.error") : t("insights.generating")}
             </span>
             <span class="header-date">
               {typeShort(task.type, task.dateFrom, task.dateTo)}
@@ -416,7 +417,7 @@
               onclick={() => task.status === "error"
                 ? insights.dismissTask(task.clientId)
                 : insights.cancelTask(task.clientId)}
-              title={task.status === "error" ? "Dismiss" : "Cancel"}
+              title={task.status === "error" ? t("insights.dismiss") : t("insights.cancel")}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
@@ -443,8 +444,8 @@
         {#if task.logs.length > 0}
           <div class="task-detail-logs" role="log">
             <div class="task-detail-logs-header">
-              Execution Log
-              <span class="log-count">{task.logs.length} lines</span>
+              {t("insights.execution_log")}
+              <span class="log-count">{task.logs.length} {t("insights.lines")}</span>
             </div>
             <div class="task-detail-logs-body">
               {#each task.logs as entry}
@@ -464,7 +465,7 @@
               <span class="orbit-ring"></span>
               <span class="orbit-dot"></span>
             </div>
-            <span class="gen-label">Waiting for {task.agent}...</span>
+            <span class="gen-label">{t("insights.waiting_for", {agent: task.agent})}</span>
           </div>
         {/if}
       </div>
@@ -493,7 +494,7 @@
                   insights.deleteItem(insights.selectedItem.id);
                 }
               }}
-              title="Delete this insight"
+              title={t("insights.delete_insight")}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M6.5 1h3a.5.5 0 01.5.5v1H6v-1a.5.5 0 01.5-.5zM11 2.5v-1A1.5 1.5 0 009.5 0h-3A1.5 1.5 0 005 1.5v1H1.5a.5.5 0 000 1h.538l.853 10.66A2 2 0 004.885 16h6.23a2 2 0 001.994-1.84l.853-10.66h.538a.5.5 0 000-1H11zm1.958 1l-.846 10.58a1 1 0 01-.997.92h-6.23a1 1 0 01-.997-.92L3.042 3.5h9.916zM5.5 5.5A.5.5 0 016 6v8a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v8a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v8a.5.5 0 001 0V6z"/>
@@ -528,7 +529,7 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M15 15l-2 5L9 9l11 4-5 2zm2 2l4 4"/>
             </svg>
-            <span>Select an insight to view</span>
+            <span>{t("insights.select_insight")}</span>
           </div>
         {:else if insights.tasks.length > 0}
           <div class="content-generating">
@@ -536,14 +537,14 @@
               <span class="orbit-ring"></span>
               <span class="orbit-dot"></span>
             </div>
-            <span class="gen-label">Generating insight...</span>
+            <span class="gen-label">{t("insights.generating_insight")}</span>
           </div>
         {:else}
           <div class="empty-prompt">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
             </svg>
-            <span>Generate an insight to get started</span>
+            <span>{t("insights.get_started")}</span>
           </div>
         {/if}
       </div>

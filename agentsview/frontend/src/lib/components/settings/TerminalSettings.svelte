@@ -1,15 +1,17 @@
 <script lang="ts">
   import SettingsSection from "./SettingsSection.svelte";
   import { settings } from "../../stores/settings.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { setTerminalConfig } from "../../api/client.js";
 
-  const MODES = [
-    { value: "auto", label: "Auto-detect" },
-    { value: "custom", label: "Custom" },
-    { value: "clipboard", label: "Clipboard only" },
-  ] as const;
+  const MODES = ["auto", "custom", "clipboard"] as const;
+  const MODE_LABELS: Record<string, string> = {
+    auto: "terminal.mode_auto",
+    custom: "terminal.mode_custom",
+    clipboard: "terminal.mode_clipboard",
+  };
 
-  let localMode: string = $state(settings.terminal.mode || "auto");
+  let localMode: string = $state(settings.terminal.mode || MODES[0]);
   let localBin: string = $state(settings.terminal.custom_bin ?? "");
   let localArgs: string = $state(settings.terminal.custom_args ?? "");
 
@@ -37,19 +39,19 @@
 </script>
 
 <SettingsSection
-  title="Terminal"
-  description="Configure how sessions are resumed in your terminal."
+  title={t("terminal.title")}
+  description={t("terminal.desc")}
 >
   <div class="setting-row">
-    <span class="setting-label">Launch mode</span>
+    <span class="setting-label">{t("terminal.launch_mode")}</span>
     <div class="setting-options">
-      {#each MODES as opt}
+      {#each MODES as mode}
         <button
           class="option-btn"
-          class:active={localMode === opt.value}
-          onclick={() => (localMode = opt.value)}
+          class:active={localMode === mode}
+          onclick={() => (localMode = mode)}
         >
-          {opt.label}
+          {t(MODE_LABELS[mode])}
         </button>
       {/each}
     </div>
@@ -57,7 +59,7 @@
 
   {#if localMode === "custom"}
     <div class="setting-row column">
-      <label class="setting-label" for="terminal-bin">Terminal binary</label>
+      <label class="setting-label" for="terminal-bin">{t("terminal.binary")}</label>
       <input
         id="terminal-bin"
         class="setting-input"
@@ -69,7 +71,7 @@
 
     <div class="setting-row column">
       <label class="setting-label" for="terminal-args">
-        Arguments <span class="hint">(use {"{cmd}"} as placeholder)</span>
+        {t("terminal.args")} <span class="hint">{t("terminal.args_hint")}</span>
       </label>
       <input
         id="terminal-args"
@@ -88,7 +90,7 @@
         disabled={settings.saving}
         onclick={saveTerminal}
       >
-        {settings.saving ? "Saving..." : "Save"}
+        {settings.saving ? t("terminal.saving") : t("terminal.save")}
       </button>
     </div>
   {/if}

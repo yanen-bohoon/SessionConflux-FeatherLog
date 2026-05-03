@@ -3,6 +3,7 @@
   import type { Session } from "../../api/types.js";
   import * as api from "../../api/client.js";
   import { sessions } from "../../stores/sessions.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { formatRelativeTime, truncate } from "../../utils/format.js";
   import { normalizeMessagePreview } from "../../utils/messages.js";
 
@@ -75,7 +76,7 @@
       <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
       <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H5.5l1-1h3l1 1h2.5a1 1 0 011 1v1zM4.118 4L4 4.059V13a1 1 0 001 1h6a1 1 0 001-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
     </svg>
-    <h2>Trash</h2>
+    <h2>{t("trash.title")}</h2>
     {#if trashedSessions.length > 0}
       <span class="trash-count">{trashedSessions.length}</span>
       <button
@@ -83,25 +84,23 @@
         onclick={emptyAll}
         disabled={emptying}
       >
-        {emptying ? "Emptying..." : "Empty Trash"}
+        {emptying ? t("trash.emptying") : t("trash.empty_btn")}
       </button>
     {/if}
   </div>
 
-  <p class="trash-desc">
-    Deleted sessions are kept until you permanently delete them or empty the trash.
-  </p>
+  <p class="trash-desc">{t("trash.desc")}</p>
 
   {#if loading}
-    <div class="loading-state">Loading trash...</div>
+    <div class="loading-state">{t("trash.loading")}</div>
   {:else if trashedSessions.length === 0}
     <div class="empty-state">
       <svg width="40" height="40" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
         <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
         <path fill-rule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H5.5l1-1h3l1 1h2.5a1 1 0 011 1v1zM4.118 4L4 4.059V13a1 1 0 001 1h6a1 1 0 001-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
       </svg>
-      <p class="empty-title">Trash is empty</p>
-      <p class="empty-desc-text">Deleted sessions will appear here.</p>
+      <p class="empty-title">{t("trash.empty_title")}</p>
+      <p class="empty-desc-text">{t("trash.empty_desc")}</p>
     </div>
   {:else}
     <div class="trash-list">
@@ -112,9 +111,9 @@
             <div class="trash-card-meta">
               <span class="trash-agent">{session.agent}</span>
               <span class="trash-project">{session.project}</span>
-              <span class="trash-msgs">{session.user_message_count} msgs</span>
+              <span class="trash-msgs">{session.user_message_count} {t("trash.msgs")}</span>
               {#if session.deleted_at}
-                <span class="trash-deleted">deleted {formatRelativeTime(session.deleted_at)}</span>
+                <span class="trash-deleted">{t("trash.deleted")} {formatRelativeTime(session.deleted_at)}</span>
               {/if}
             </div>
           </div>
@@ -122,16 +121,16 @@
             <button
               class="restore-btn"
               onclick={() => restoreSession(session.id)}
-              title="Restore session"
+              title={t("trash.restore_title")}
             >
-              Restore
+              {t("trash.restore")}
             </button>
             <button
               class="perm-delete-btn"
               onclick={() => permanentDelete(session.id)}
-              title="Permanently delete"
+              title={t("trash.delete_title")}
             >
-              Delete Forever
+              {t("trash.delete_forever")}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { trends } from "../../stores/trends.svelte.js";
   import { getBasePath } from "../../stores/router.svelte.js";
+  import { t } from "../../i18n/index.js";
   import type { TrendsGranularity } from "../../api/types.js";
   import TermTable from "./TermTable.svelte";
   import TrendsLineChart from "./TrendsLineChart.svelte";
@@ -106,33 +107,33 @@
 <section class="trends-page">
   <div class="page-head">
     <div>
-      <h1>Trends</h1>
-      <p>{trends.response?.from ?? trends.from} to {trends.response?.to ?? trends.to}</p>
+      <h1>{t("trends.title")}</h1>
+      <p>{trends.response?.from ?? trends.from} - {trends.response?.to ?? trends.to}</p>
     </div>
     <div class="head-actions">
-      <button class="secondary" onclick={resetTerms}>Reset</button>
+      <button class="secondary" onclick={resetTerms}>{t("trends.reset")}</button>
       <button class="primary" onclick={refresh} disabled={trends.loading.terms}>
-        {trends.loading.terms ? "Refreshing" : "Refresh"}
+        {trends.loading.terms ? t("trends.refreshing") : t("trends.refresh")}
       </button>
     </div>
   </div>
 
   <div class="toolbar">
     <label>
-      <span>From</span>
+      <span>{t("trends.from")}</span>
       <input type="date" bind:value={trends.from} onchange={setFromDate} />
     </label>
     <label>
-      <span>To</span>
+      <span>{t("trends.to")}</span>
       <input type="date" bind:value={trends.to} onchange={setToDate} />
     </label>
-    <div class="granularity" aria-label="Granularity">
+    <div class="granularity" aria-label={t("trends.granularity")}>
       {#each ["day", "week", "month"] as value}
         <button
           class:active={trends.granularity === value}
           onclick={() => setGranularity(value as TrendsGranularity)}
         >
-          {value}
+          {t(`trends.${value}`)}
         </button>
       {/each}
     </div>
@@ -142,15 +143,15 @@
         bind:checked={trends.normalized}
         onchange={setNormalized}
       />
-      <span>Normalize by number of messages</span>
+      <span>{t("trends.normalize")}</span>
     </label>
   </div>
 
   <div class="content-grid">
     <div class="query-panel">
       <label class="terms-label" for="trend-terms">
-        <span>Terms</span>
-        <span class="terms-hint">one per line</span>
+        <span>{t("trends.terms")}</span>
+        <span class="terms-hint">{t("trends.terms_hint")}</span>
       </label>
       <textarea
         id="trend-terms"
@@ -175,7 +176,7 @@
       {#if trends.loading.terms}
         <div class="loading-overlay" role="status" aria-live="polite">
           <span class="loading-spinner" aria-hidden="true"></span>
-          <span>Computing trends...</span>
+          <span>{t("trends.computing")}</span>
         </div>
       {/if}
     </div>

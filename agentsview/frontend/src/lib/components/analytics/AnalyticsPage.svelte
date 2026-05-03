@@ -18,6 +18,7 @@
   import { sessions } from "../../stores/sessions.svelte.js";
   import { events } from "../../stores/events.svelte.js";
   import { ui } from "../../stores/ui.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { exportAnalyticsCSV } from "../../utils/csv-export.js";
 
   function shortTz(tz: string): string {
@@ -157,15 +158,15 @@
     <button
       class="refresh-btn"
       onclick={() => analytics.fetchAll()}
-      title="Refresh analytics"
-      aria-label="Refresh analytics"
+      title={t("analytics.refresh_title")}
+      aria-label={t("analytics.refresh_aria")}
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 3a5 5 0 00-4.546 2.914.5.5 0 01-.908-.418A6 6 0 0114 8a.5.5 0 01-1 0 5 5 0 00-5-5zm4.546 7.086a.5.5 0 01.908.418A6 6 0 012 8a.5.5 0 011 0 5 5 0 005 5 5 5 0 004.546-2.914z"/>
       </svg>
     </button>
     <button class="export-btn" onclick={handleExportCSV}>
-      Export CSV
+      {t("analytics.export_csv")}
     </button>
   </div>
 
@@ -182,7 +183,7 @@
       <div class="chart-panel">
         <div class="chart-header">
           <h3 class="chart-title">
-            Activity by Day and Hour
+            {t("analytics.activity_chart")}
             <span class="tz-label">
               {shortTz(analytics.timezone)}
             </span>

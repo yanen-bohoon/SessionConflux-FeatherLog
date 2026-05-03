@@ -7,8 +7,14 @@ export function registerLocale(lang: string, messages: LocaleMessages) {
   locales[lang] = messages;
 }
 
+export function initLocale(lang: string) {
+  if (!locales[lang]) return;
+  current = lang;
+}
+
 export function setLocale(lang: string) {
   if (!locales[lang]) return;
+  if (current === lang) return;
   current = lang;
   try { localStorage.setItem("agentsview-locale", lang); } catch { /* noop */ }
   window.location.reload();
