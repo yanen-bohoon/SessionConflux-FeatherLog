@@ -138,7 +138,7 @@ air-install:
 # Run Go server in dev mode with live reload (use with frontend-dev).
 # Edits to .go files trigger a rebuild + restart via air.
 dev: ensure-embed-dir check-air
-	"$(AIR_BIN)" -c .air.toml -- $(ARGS)
+	AGENTSVIEW_DATA_DIR=$$(pwd)/data "$(AIR_BIN)" -c .air.toml -- $(ARGS)
 
 # Run the Tauri desktop wrapper in development mode
 desktop-dev:
