@@ -59,7 +59,7 @@
         color: "var(--accent-amber)",
       },
       {
-        label: "Output",
+        label: t("usage.output"),
         value: cs.outputTokens,
         pct: cs.outputTokens / total,
         color: "var(--accent-blue)",
@@ -74,10 +74,10 @@
 </script>
 
 <div class="cache-panel">
-  <h3 class="chart-title">Cache Efficiency</h3>
+  <h3 class="chart-title">{t("usage.cache_efficiency")}</h3>
 
   {#if bars.length === 0}
-    <div class="empty">No token data</div>
+    <div class="empty">{t("usage.no_token_data")}</div>
   {:else}
     <div class="bar-list">
       {#each bars as bar}
@@ -99,11 +99,11 @@
 
     {#if savingsLabel === "saved"}
       <div class="savings-callout saved">
-        {fmtCost(savings)} saved vs uncached
+        {t("usage.saved_vs_uncached", { cost: fmtCost(savings) })}
       </div>
     {:else if savingsLabel === "costlier"}
       <div class="savings-callout costlier">
-        {fmtCost(Math.abs(savings))} more than uncached
+        {t("usage.more_than_uncached", { cost: fmtCost(Math.abs(savings)) })}
       </div>
     {/if}
   {/if}

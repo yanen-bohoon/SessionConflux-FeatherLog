@@ -72,7 +72,8 @@
     const c = usage.summary?.comparison;
     if (!c) return null;
     const sign = c.deltaPct >= 0 ? "+" : "";
-    return `${sign}${(c.deltaPct * 100).toFixed(0)}% vs prior`;
+    const delta = `${sign}${(c.deltaPct * 100).toFixed(0)}%`;
+    return t("usage.vs_prior", { delta });
   });
 
   interface Card {
@@ -165,7 +166,7 @@
       class="retry-btn"
       onclick={() => usage.fetchSummary()}
     >
-      Retry
+      {t("common.retry")}
     </button>
   </div>
 {/if}

@@ -368,6 +368,35 @@ export const zh: Record<string, string> = {
   'usage.avg_per_day': '日均',
   'usage.cached_label': '缓存 {n}',
 
+  // Usage — filters & dropdown
+  'usage.filter_all': '全部',
+  'usage.filter_none': '无',
+  'usage.filter_selected': '已选 {n} 项',
+  'usage.filter_hidden': '已隐藏 {n} 项',
+  'usage.filter_search': '搜索...',
+  'usage.select_all': '全选',
+  'usage.deselect_all': '取消全选',
+  'usage.all_items': '全部{label}',
+  'usage.no_matches': '无匹配',
+
+  // Usage — charts & panels
+  'usage.label_agent': 'Agent',
+  'usage.output': '输出',
+  'usage.cache_efficiency': '缓存效率',
+  'usage.no_token_data': '无 Token 数据',
+  'usage.cost_attribution': '费用归因',
+  'usage.treemap': '树图',
+  'usage.list': '列表',
+  'usage.cost_over_time': '费用趋势',
+  'usage.top_sessions_cost': '费用最高会话',
+  'usage.other': '其他',
+  'usage.hide_from_chart': '从图表中隐藏 {label}',
+  'usage.click_to_hide_tile': '点击隐藏 {label}',
+  'usage.click_hide_hint': '点击以从图表中隐藏',
+  'usage.saved_vs_uncached': '相比未缓存节省 {cost}',
+  'usage.more_than_uncached': '相比未缓存多花 {cost}',
+  'usage.vs_prior': '较上期 {delta}',
+
   // Analytics page
   'analytics.refresh_title': '刷新分析',
   'analytics.refresh_aria': '刷新分析',

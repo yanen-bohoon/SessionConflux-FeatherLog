@@ -104,7 +104,7 @@
 
 <div class="attribution-panel">
   <div class="panel-header">
-    <h3 class="chart-title">Cost Attribution</h3>
+    <h3 class="chart-title">{t("usage.cost_attribution")}</h3>
     <div class="toggles">
       <div class="segment-toggle">
         <button
@@ -112,21 +112,21 @@
           class:active={groupBy === "project"}
           onclick={() => handleGroupByChange("project")}
         >
-          Project
+          {t("usage.label_project")}
         </button>
         <button
           class="toggle-btn"
           class:active={groupBy === "model"}
           onclick={() => handleGroupByChange("model")}
         >
-          Model
+          {t("usage.label_model")}
         </button>
         <button
           class="toggle-btn"
           class:active={groupBy === "agent"}
           onclick={() => handleGroupByChange("agent")}
         >
-          Agent
+          {t("usage.label_agent")}
         </button>
       </div>
       <div class="segment-toggle">
@@ -135,23 +135,23 @@
           class:active={view === "treemap"}
           onclick={() => handleViewChange("treemap")}
         >
-          Treemap
+          {t("usage.treemap")}
         </button>
         <button
           class="toggle-btn"
           class:active={view === "list"}
           onclick={() => handleViewChange("list")}
         >
-          List
+          {t("usage.list")}
         </button>
       </div>
     </div>
   </div>
 
   {#if rows.length === 0}
-    <div class="empty">No data for this period</div>
+    <div class="empty">{t("analytics.no_data_period")}</div>
   {:else}
-    <div class="hint">Click to hide from chart</div>
+    <div class="hint">{t("usage.click_hide_hint")}</div>
     {#if view === "treemap"}
       <div class="treemap-layout">
         <div class="treemap-main">

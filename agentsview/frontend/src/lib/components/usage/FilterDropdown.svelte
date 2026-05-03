@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { t } from "../../i18n/index.js";
 
   interface FilterItem {
     name: string;
@@ -43,10 +44,10 @@
   );
 
   const buttonLabel = $derived.by(() => {
-    if (filteredCount === 0) return `${label}: All`;
+    if (filteredCount === 0) return `${label}: ${t("usage.filter_all")}`;
     if (mode === "include") {
       if (filteredCount === 1) return `${label}: ${excludedCsv}`;
-      return `${label}: ${filteredCount} selected`;
+      return `${label}: ${t("usage.filter_selected", { n: filteredCount })}`;
     }
     if (visibleCount === 1) {
       const visible = items.find(
@@ -60,8 +61,8 @@
         return `${label}: ${visible.name}`;
       }
     }
-    if (visibleCount === 0) return `${label}: None`;
-    return `${label}: ${filteredCount} hidden`;
+    if (visibleCount === 0) return `${label}: ${t("usage.filter_none")}`;
+    return `${label}: ${t("usage.filter_hidden", { n: filteredCount })}`;
   });
 
   const showSearch = $derived(items.length > 8);
@@ -135,7 +136,7 @@
         <input
           class="dropdown-search"
           type="text"
-          placeholder="Search..."
+          placeholder={t("usage.filter_search")}
           bind:value={search}
         />
       {/if}
@@ -144,11 +145,11 @@
           <button
             class="bulk-btn"
             onclick={() => onSelectAll?.()}
-          >Select all</button>
+          >{t("usage.select_all")}</button>
           <button
             class="bulk-btn"
             onclick={() => onDeselectAll?.()}
-          >Deselect all</button>
+          >{t("usage.deselect_all")}</button>
         </div>
       {/if}
       <div class="dropdown-list">
@@ -181,7 +182,7 @@
                 </svg>
               {/if}
             </span>
-            <span class="item-name">All {label.toLowerCase()}s</span>
+            <span class="item-name">{t("usage.all_items", { label: label.toLowerCase() })}</span>
           </button>
         {/if}
         {#each filtered as item (item.name)}
@@ -231,7 +232,7 @@
           </button>
         {/each}
         {#if filtered.length === 0}
-          <div class="dropdown-empty">No matches</div>
+          <div class="dropdown-empty">{t("usage.no_matches")}</div>
         {/if}
       </div>
     </div>

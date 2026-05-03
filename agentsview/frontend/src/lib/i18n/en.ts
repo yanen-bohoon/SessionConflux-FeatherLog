@@ -364,6 +364,35 @@ export const en: Record<string, string> = {
   'usage.avg_per_day': 'avg/day',
   'usage.cached_label': '{n} cached',
 
+  // Usage — filters & dropdown
+  'usage.filter_all': 'All',
+  'usage.filter_none': 'None',
+  'usage.filter_selected': '{n} selected',
+  'usage.filter_hidden': '{n} hidden',
+  'usage.filter_search': 'Search...',
+  'usage.select_all': 'Select all',
+  'usage.deselect_all': 'Deselect all',
+  'usage.all_items': 'All {label}s',
+  'usage.no_matches': 'No matches',
+
+  // Usage — charts & panels
+  'usage.label_agent': 'Agent',
+  'usage.output': 'Output',
+  'usage.cache_efficiency': 'Cache Efficiency',
+  'usage.no_token_data': 'No token data',
+  'usage.cost_attribution': 'Cost Attribution',
+  'usage.treemap': 'Treemap',
+  'usage.list': 'List',
+  'usage.cost_over_time': 'Cost Over Time',
+  'usage.top_sessions_cost': 'Top Sessions by Cost',
+  'usage.other': 'Other',
+  'usage.hide_from_chart': 'Hide {label} from chart',
+  'usage.click_to_hide_tile': 'Click to hide {label}',
+  'usage.click_hide_hint': 'Click to hide from chart',
+  'usage.saved_vs_uncached': '{cost} saved vs uncached',
+  'usage.more_than_uncached': '{cost} more than uncached',
+  'usage.vs_prior': '{delta} vs prior',
+
   // Analytics page
   'analytics.refresh_title': 'Refresh analytics',
   'analytics.refresh_aria': 'Refresh analytics',
