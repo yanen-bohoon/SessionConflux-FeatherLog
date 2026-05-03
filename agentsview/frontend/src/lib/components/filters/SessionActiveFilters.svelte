@@ -4,6 +4,7 @@
     agentColor,
     agentLabel,
   } from "../../utils/agents.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     projectFilters?: string[];
@@ -65,13 +66,13 @@
 
 {#if hasFilters}
   <div class="active-filters">
-    <span class="filters-label">Filters:</span>
+    <span class="filters-label">{t("filter.filters")}:</span>
 
     {#if sessions.filters.project}
       <button
         class="filter-chip"
         onclick={clearProject}
-        title="Clear project filter"
+        title={t("filter.clear_project")}
       >
         {sessions.filters.project}
         <span class="chip-x">&times;</span>
@@ -82,7 +83,7 @@
       <button
         class="filter-chip"
         onclick={() => removeMachine(machine)}
-        title="Remove {machine} filter"
+        title={t("filter.remove_machine", { machine })}
       >
         {machine}
         <span class="chip-x">&times;</span>
@@ -93,7 +94,7 @@
       <button
         class="filter-chip"
         onclick={() => removeAgent(agent)}
-        title="Remove {agentLabel(agent)} filter"
+        title={t("filter.remove_agent", { agent: agentLabel(agent) })}
       >
         <span
           class="agent-chip-dot"
@@ -108,9 +109,9 @@
       <button
         class="filter-chip"
         onclick={() => sessions.setMinUserMessagesFilter(0)}
-        title="Clear min prompts filter"
+        title={t("filter.clear_min_prompts")}
       >
-        &ge;{sessions.filters.minUserMessages} prompts
+        {t("filter.label_min_prompts", { n: sessions.filters.minUserMessages })}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -119,9 +120,9 @@
       <button
         class="filter-chip"
         onclick={() => sessions.setRecentlyActiveFilter(false)}
-        title="Clear recently active filter"
+        title={t("filter.clear_recently")}
       >
-        Active 24h
+        {t("filter.label_active_24h")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -130,9 +131,9 @@
       <button
         class="filter-chip"
         onclick={() => sessions.setHideUnknownProjectFilter(false)}
-        title="Clear hidden unknown project filter"
+        title={t("filter.clear_hidden_unknown")}
       >
-        Unknown hidden
+        {t("filter.label_unknown_hidden")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -141,7 +142,7 @@
       <button
         class="filter-chip"
         onclick={() => onRemoveProject?.(project)}
-        title="Remove {project} project filter"
+        title={t("filter.remove_project", { project })}
       >
         {project}
         <span class="chip-x">&times;</span>
@@ -152,9 +153,9 @@
       <button
         class="filter-chip"
         onclick={() => sessions.setIncludeOneShotFilter(true)}
-        title="Clear single-turn filter"
+        title={t("filter.clear_single_turn")}
       >
-        Single-turn hidden
+        {t("filter.label_single_turn_hidden")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -163,9 +164,9 @@
       <button
         class="filter-chip"
         onclick={() => sessions.setIncludeAutomatedFilter(false)}
-        title="Clear automated filter"
+        title={t("filter.clear_automated")}
       >
-        Automated included
+        {t("filter.label_automated_included")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -174,7 +175,7 @@
       <button
         class="filter-chip"
         onclick={() => onRemoveModel?.(model)}
-        title="Remove {model} model filter"
+        title={t("filter.remove_model", { model })}
       >
         {model}
         <span class="chip-x">&times;</span>
@@ -184,9 +185,9 @@
     <button
       class="clear-all"
       onclick={clearAll}
-      title="Clear all filters"
+      title={t("filter.clear_all")}
     >
-      Clear all
+      {t("filter.clear_all")}
     </button>
   </div>
 {/if}

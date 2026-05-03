@@ -94,13 +94,7 @@
     margin-top: 8px;
   }
 
-  .update-instructions code {
-    font-family: var(--font-mono);
-    background: var(--bg-inset);
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-size: 11px;
-  }
+
 
   .update-actions {
     display: flex;

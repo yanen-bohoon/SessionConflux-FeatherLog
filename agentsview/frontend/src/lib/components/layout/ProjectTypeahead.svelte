@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import type { ProjectInfo } from "../../api/types/core.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     projects: ProjectInfo[];
@@ -16,7 +17,7 @@
   let inputEl = $state<HTMLInputElement>();
   let containerEl = $state<HTMLDivElement>();
 
-  const allOption = { name: "", label: "All Projects", count: 0 };
+  const allOption = $derived({ name: "", label: t("filter.all_projects"), count: 0 });
 
   const options = $derived.by(() => {
     const items = projects.map((p) => ({
@@ -34,7 +35,7 @@
   });
 
   const displayValue = $derived(
-    value ? projects.find((p) => p.name === value)?.name ?? value : "All Projects",
+    value ? projects.find((p) => p.name === value)?.name ?? value : t("filter.all_projects"),
   );
 
   async function openDropdown() {
@@ -115,8 +116,8 @@
       oninput={handleInput}
       onkeydown={handleKeydown}
       onblur={handleBlur}
-      placeholder="Filter projects..."
-      aria-label="Filter projects"
+      placeholder={t("filter.search_projects")}
+      aria-label={t("filter.search_projects")}
       autocomplete="off"
     />
     <ul class="typeahead-list" role="listbox" onmousedown={preventBlur}>
@@ -133,11 +134,11 @@
           {#each highlightSegments(option.label, query) as seg}{#if seg.match}<mark class="match">{seg.text}</mark>{:else}{seg.text}{/if}{/each}
         </li>
       {:else}
-        <li class="typeahead-empty">No matching projects</li>
+        <li class="typeahead-empty">{t("filter.no_matching_projects")}</li>
       {/each}
     </ul>
   {:else}
-    <button class="typeahead-trigger" onclick={openDropdown} title="Select project">
+    <button class="typeahead-trigger" onclick={openDropdown} title={t("filter.select_project")}>
       <span class="typeahead-value">{displayValue}</span>
       <svg class="typeahead-chevron" width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
         <path d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>

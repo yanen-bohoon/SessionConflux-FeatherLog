@@ -3,6 +3,7 @@
     TrendsBucket,
     TrendsSeries,
   } from "../../api/types.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     buckets: TrendsBucket[];
@@ -59,7 +60,7 @@
   });
   const hasData = $derived(series.some((item) => item.total > 0));
   const metricLabel = $derived(
-    normalized ? "Occurrences / 1k messages" : "Occurrences",
+    normalized ? t("trends.y_axis_normalized") : t("trends.y_axis_raw"),
   );
 
   function niceScale(maxY: number): { step: number; max: number } {
@@ -135,15 +136,15 @@
 
 <div class="chart-wrap" bind:this={containerEl}>
   {#if buckets.length === 0 || series.length === 0}
-    <div class="empty">No trend data</div>
+    <div class="empty">{t("trends.no_data")}</div>
   {:else}
     <svg
       class="chart"
       viewBox={`0 0 ${width} ${HEIGHT}`}
       role="img"
       aria-label={normalized
-        ? "Term occurrence trends per 1,000 messages"
-        : "Term occurrence trends"}
+        ? t("trends.chart_normalized")
+        : t("trends.chart_raw")}
     >
       <text class="y-title" x={LEFT} y="12">
         {metricLabel}

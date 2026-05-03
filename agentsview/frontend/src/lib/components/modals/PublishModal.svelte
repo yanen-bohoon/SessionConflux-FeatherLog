@@ -47,7 +47,7 @@
   async function doPublish() {
     const id = sessions.activeSessionId;
     if (!id) {
-      errorMessage = "No session selected";
+      errorMessage = t("modal.publish.no_session");
       view = "error";
       return;
     }
@@ -58,7 +58,7 @@
       view = "success";
     } catch (err) {
       errorMessage =
-        err instanceof Error ? err.message : "Publish failed";
+        err instanceof Error ? err.message : t("modal.publish.failed");
       view = "error";
     }
   }
@@ -227,13 +227,6 @@
     font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 12px;
-  }
-
-  .setup-text code {
-    font-family: var(--font-mono);
-    background: var(--bg-inset);
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
   }
 
   .token-input {

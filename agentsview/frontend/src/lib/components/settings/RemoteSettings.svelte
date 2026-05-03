@@ -44,7 +44,7 @@
     } catch (e) {
       testResult = {
         ok: false,
-        message: e instanceof Error ? e.message : "Connection failed",
+        message: e instanceof Error ? e.message : t("remote.connection_failed"),
       };
     } finally {
       testing = false;

@@ -4,6 +4,7 @@
   import { formatDuration } from "../../utils/duration.js";
   import { categoryToken } from "../../utils/categoryToken.js";
   import { displayToolName } from "../../utils/toolDisplay.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     call: CallTiming;
@@ -43,7 +44,7 @@
   let durationLabel = $derived.by(() => {
     if (isLive) {
       const elapsed = liveDurationMs ?? call.duration_ms ?? 0;
-      return `running ${formatDuration(elapsed)}+`;
+      return t("vitals.running", { duration: formatDuration(elapsed) });
     }
     if (call.duration_ms == null) {
       return sharedDurationLabel ?? "—";
@@ -82,7 +83,7 @@
     <button
       type="button"
       class="chev"
-      aria-label="Toggle sub-agent calls"
+      aria-label={t("content.toggle_subagent_calls")}
       aria-expanded={isSubagentExpanded}
       onclick={handleChevronClick}
     >▸</button>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
   import type {
     VelocityOverview,
     VelocityBreakdown,
@@ -41,17 +42,17 @@
   <div class="velocity-header">
     <h3 class="chart-title">Velocity</h3>
     <div class="tab-toggle">
-      {#each (["overall", "agent", "complexity"] as const) as t}
+      {#each (["overall", "agent", "complexity"] as const) as tab}
         <button
           class="toggle-btn"
-          class:active={activeTab === t}
-          onclick={() => (activeTab = t)}
+          class:active={activeTab === tab}
+          onclick={() => (activeTab = tab)}
         >
-          {t === "overall"
+          {tab === "overall"
             ? "Overview"
-            : t === "agent"
-              ? "By Agent"
-              : "By Size"}
+            : tab === "agent"
+              ? t("analytics.by_agent")
+              : t("analytics.by_size")}
         </button>
       {/each}
     </div>

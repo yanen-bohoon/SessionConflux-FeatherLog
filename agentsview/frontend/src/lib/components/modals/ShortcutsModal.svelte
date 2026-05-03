@@ -7,28 +7,28 @@
   const mod = isMac ? "Cmd" : "Ctrl";
 
   const baseShortcuts = [
-    { key: `${mod}+K`, action: "Open command palette" },
-    { key: `${mod}+F / /`, action: "Find in session" },
-    { key: "Esc", action: "Close palette / modal / find" },
-    { key: "j / \u2193", action: "Next message" },
-    { key: "k / \u2191", action: "Previous message" },
-    { key: "]", action: "Next session" },
-    { key: "[", action: "Previous session" },
-    { key: "o", action: "Toggle sort order" },
-    { key: "l", action: "Cycle message layout" },
-    { key: "r", action: "Trigger sync" },
-    { key: "s", action: "Star / unstar session" },
-    { key: "e", action: "Export session" },
-    { key: "p", action: "Publish to Gist" },
-    { key: "c", action: "Copy resume command" },
-    { key: "Del", action: "Delete session" },
-    { key: "?", action: "Show this modal" },
+    { key: `${mod}+K`, action: t("shortcut.open_palette") },
+    { key: `${mod}+F / /`, action: t("shortcut.find_in_session") },
+    { key: "Esc", action: t("shortcut.close_palette") },
+    { key: "j / \u2193", action: t("shortcut.next_message") },
+    { key: "k / \u2191", action: t("shortcut.prev_message") },
+    { key: "]", action: t("shortcut.next_session") },
+    { key: "[", action: t("shortcut.prev_session") },
+    { key: "o", action: t("shortcut.toggle_sort") },
+    { key: "l", action: t("shortcut.cycle_layout") },
+    { key: "r", action: t("shortcut.trigger_sync") },
+    { key: "s", action: t("shortcut.toggle_star") },
+    { key: "e", action: t("shortcut.export_session") },
+    { key: "p", action: t("shortcut.publish_gist") },
+    { key: "c", action: t("shortcut.copy_resume") },
+    { key: "Del", action: t("shortcut.delete_session") },
+    { key: "?", action: t("shortcut.show_modal") },
   ];
 
   const zoomShortcuts = [
-    { key: `${mod}++`, action: "Zoom in" },
-    { key: `${mod}+-`, action: "Zoom out" },
-    { key: `${mod}+0`, action: "Reset zoom" },
+    { key: `${mod}++`, action: t("shortcut.zoom_in") },
+    { key: `${mod}+-`, action: t("shortcut.zoom_out") },
+    { key: `${mod}+0`, action: t("shortcut.reset_zoom") },
   ];
 
   const shortcuts = sync.isDesktop

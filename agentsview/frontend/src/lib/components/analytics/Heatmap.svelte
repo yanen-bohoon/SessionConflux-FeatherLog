@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
   import type { HeatmapMetric } from "../../stores/analytics.svelte.js";
 
   const CELL_SIZE = 16;
@@ -45,7 +46,7 @@
       case "sessions":
         return "Sessions";
       case "output_tokens":
-        return "Output Tokens";
+        return t("analytics.output_tokens");
       default:
         return "Messages";
     }

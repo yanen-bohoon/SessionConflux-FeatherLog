@@ -236,7 +236,7 @@
       if (resp.command) {
         const cmd = formatResumeResponseCommand(session.agent, resp);
         const ok = cmd ? await copyToClipboard(cmd) : false;
-        showFeedback(ok ? "Command copied!" : "Failed");
+        showFeedback(ok ? t("session.command_copied") : t("session.failed"));
         return;
       }
     } catch {
@@ -245,9 +245,9 @@
     const cmd = buildResumeCommand(session.agent, session.id);
     if (cmd) {
       const ok = await copyToClipboard(cmd);
-      showFeedback(ok ? "Command copied!" : "Failed");
+      showFeedback(ok ? t("session.command_copied") : t("session.failed"));
     } else {
-      showFeedback("Not supported");
+      showFeedback(t("session.not_supported"));
     }
   }
 

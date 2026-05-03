@@ -1,6 +1,7 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
   import { agentColor, agentLabel } from "../../utils/agents.js";
+  import { t } from "../../i18n/index.js";
 
   const selectedAgents = $derived(
     analytics.agent
@@ -60,13 +61,13 @@
 
 {#if analytics.hasActiveFilters}
   <div class="active-filters">
-    <span class="filters-label">Filters:</span>
+    <span class="filters-label">{t("filter.filters")}:</span>
 
     {#if analytics.selectedDate}
       <button
         class="filter-chip"
         onclick={() => analytics.clearDate()}
-        title="Clear date filter"
+        title={t("filter.clear_date")}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -87,7 +88,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearProject()}
-        title="Clear project filter"
+        title={t("filter.clear_project")}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -108,7 +109,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.removeMachine(machine)}
-        title="Remove {machine} filter"
+        title={t("filter.remove_machine", { machine })}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -130,7 +131,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.toggleAgent(agent)}
-        title="Remove {agentLabel(agent)} filter"
+        title={t("filter.remove_agent", { agent: agentLabel(agent) })}
       >
         <span
           class="agent-chip-dot"
@@ -145,7 +146,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearMinUserMessages()}
-        title="Clear min prompts filter"
+        title={t("filter.clear_min_prompts")}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -162,7 +163,7 @@
               01-.244.637c-.079.186.074.394.272.362z"/>
           </svg>
         </span>
-        &ge;{analytics.minUserMessages} prompts
+        {t("filter.label_min_prompts", { n: analytics.minUserMessages })}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -171,7 +172,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearRecentlyActive()}
-        title="Clear recently active filter"
+        title={t("filter.clear_recently")}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -182,7 +183,7 @@
               7.793V4z"/>
           </svg>
         </span>
-        Active 24h
+        {t("filter.label_active_24h")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -191,9 +192,9 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearIncludeOneShot()}
-        title="Clear single-turn filter"
+        title={t("filter.clear_single_turn")}
       >
-        Single-turn hidden
+        {t("filter.label_single_turn_hidden")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -202,9 +203,9 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearIncludeAutomated()}
-        title="Clear automated filter"
+        title={t("filter.clear_automated")}
       >
-        Automated included
+        {t("filter.label_automated_included")}
         <span class="chip-x">&times;</span>
       </button>
     {/if}
@@ -213,7 +214,7 @@
       <button
         class="filter-chip"
         onclick={() => analytics.clearTimeFilter()}
-        title="Clear time filter"
+        title={t("filter.clear_time")}
       >
         <span class="chip-icon">
           <svg width="10" height="10" viewBox="0 0 16 16"
@@ -233,9 +234,9 @@
       <button
         class="clear-all"
         onclick={() => analytics.clearAllFilters()}
-        title="Clear all filters"
+        title={t("filter.clear_all")}
       >
-        Clear all
+        {t("filter.clear_all")}
       </button>
     {/if}
   </div>

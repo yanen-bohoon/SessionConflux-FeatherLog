@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Message } from "../../api/types.js";
   import { formatTimestamp } from "../../utils/format.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     message: Message;
@@ -18,11 +19,11 @@
   });
 </script>
 
-<div class="boundary" title="Context window compacted at this point">
+<div class="boundary" title={t("content.context_compacted")}>
   <span class="boundary-line"></span>
   <span class="boundary-label">
     <span class="boundary-icon" aria-hidden="true">↻</span>
-    Context compacted
+    {t("content.context_compacted_label")}
     {#if message.timestamp}
       <span class="boundary-time">
         &middot; {formatTimestamp(message.timestamp)}

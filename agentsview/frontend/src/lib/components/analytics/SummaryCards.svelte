@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
 
   function formatNum(n: number): string {
     return n.toLocaleString();
@@ -32,7 +33,7 @@
         String(analytics.summary?.active_projects ?? 0),
     },
     {
-      label: "Active Days",
+      label: t("analytics.active_days"),
       value: () =>
         String(analytics.summary?.active_days ?? 0),
     },

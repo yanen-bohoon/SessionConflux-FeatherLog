@@ -1,5 +1,6 @@
 <script lang="ts">
   import { usage } from "../../stores/usage.svelte.js";
+  import { t } from "../../i18n/index.js";
 
   function fmtCost(v: number): string {
     return `$${v.toFixed(2)}`;
@@ -83,38 +84,38 @@
 
   const cards: Card[] = [
     {
-      label: "Total Cost",
+      label: t("usage.card_total_cost"),
       value: () => fmtCost(usage.summary?.totals.totalCost ?? 0),
       sub: () => vsPrior ?? "",
       featured: true,
     },
     {
-      label: "Input Tokens",
+      label: t("usage.card_input_tokens"),
       value: () => fmtTokens(inputTokens),
       sub: () =>
-        cachedTokens > 0 ? `+${fmtTokens(cachedTokens)} cached` : "",
+        cachedTokens > 0 ? `+${t("usage.cached_label", { n: fmtTokens(cachedTokens) })}` : "",
     },
     {
-      label: "Output Tokens",
+      label: t("usage.card_output_tokens"),
       value: () => fmtTokens(outputTokens),
     },
     {
-      label: "Daily Burn",
+      label: t("usage.card_daily_burn"),
       value: () => fmtCost(dailyBurn),
-      sub: () => "avg/day",
+      sub: () => t("usage.avg_per_day"),
     },
     {
-      label: "Peak Day",
+      label: t("usage.card_peak_day"),
       value: () => fmtCost(peak.cost),
       sub: () => peak.date,
     },
     {
-      label: "Cache Hit",
+      label: t("usage.card_cache_hit"),
       value: () =>
         fmtPct(usage.summary?.cacheStats.hitRate ?? 0),
     },
     {
-      label: "Projects",
+      label: t("usage.card_projects"),
       value: () =>
         String(
           Object.keys(
@@ -123,12 +124,12 @@
         ),
     },
     {
-      label: "Models",
+      label: t("usage.card_models"),
       value: () =>
         String(usage.summary?.modelTotals.length ?? 0),
     },
     {
-      label: "Active Days",
+      label: t("usage.card_active_days"),
       value: () => String(activeDays),
     },
   ];

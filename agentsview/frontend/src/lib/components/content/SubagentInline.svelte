@@ -8,6 +8,7 @@
   import { sessions } from "../../stores/sessions.svelte.js";
   import { router } from "../../stores/router.svelte.js";
   import MessageContent from "./MessageContent.svelte";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     sessionId: string;
@@ -36,7 +37,7 @@
         messages = resp.messages;
         sessionMeta = meta;
       } catch (e) {
-        error = e instanceof Error ? e.message : "Failed to load";
+        error = e instanceof Error ? e.message : t("content.failed_to_load");
       } finally {
         loading = false;
       }
@@ -87,7 +88,7 @@
   <div class="subagent-header">
     <button class="subagent-toggle" onclick={toggleExpand}>
       <span class="toggle-chevron" class:open={expanded}>&#9656;</span>
-      <span class="toggle-label">Subagent session</span>
+      <span class="toggle-label">{t("content.subagent_session")}</span>
       {#if agentLabel}
         <span class="toggle-meta">{agentLabel}</span>
       {/if}
@@ -108,16 +109,16 @@
       href={router.buildSessionHref(sessionId)}
       class="open-session-link"
       onclick={openAsSession}
-      title="Open as full session"
+      title={t("content.open_full_session")}
     >
-      Open session &#8599;
+      {t("content.open_session")} &#8599;
     </a>
   </div>
 
   {#if expanded}
     <div class="subagent-messages">
       {#if loading}
-        <div class="subagent-status">Loading...</div>
+        <div class="subagent-status">{t("common.loading")}</div>
       {:else if error}
         <div class="subagent-status subagent-error">{error}</div>
       {:else if messages && messages.length > 0}
@@ -125,7 +126,7 @@
           <MessageContent {message} isSubagentContext={true} />
         {/each}
       {:else if messages}
-        <div class="subagent-status">No messages</div>
+        <div class="subagent-status">{t("content.no_messages")}</div>
       {/if}
     </div>
   {/if}

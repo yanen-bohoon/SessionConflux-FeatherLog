@@ -165,7 +165,7 @@
       error =
         e instanceof Error
           ? e.message
-          : "Import failed";
+          : t("import.failed");
     } finally {
       importing = false;
     }
@@ -210,7 +210,7 @@
       class="modal-panel import-panel"
       role="dialog"
       aria-modal="true"
-      aria-label="Import conversations"
+      aria-label={t("import.title")}
     >
       <div class="modal-header">
         <h3 class="modal-title">{t("modal.import.title")}</h3>
@@ -218,7 +218,7 @@
           class="modal-close"
           onclick={handleClose}
           disabled={importing}
-          aria-label="Close"
+          aria-label={t("import.close")}
         >&times;</button>
       </div>
 
@@ -251,11 +251,7 @@
             </div>
 
             <p class="result-heading">
-              {totalProcessed}
-              conversation{totalProcessed !== 1
-                ? "s"
-                : ""}
-              processed
+              {t("import.processed", { n: totalProcessed })}
             </p>
 
             <div class="result-stats">
@@ -263,20 +259,20 @@
                 <span class="stat-num new">
                   {result.imported}
                 </span>
-                <span class="stat-lbl">new</span>
+                <span class="stat-lbl">{t("import.stat_new")}</span>
               </div>
               <div class="stat">
                 <span class="stat-num updated">
                   {result.updated}
                 </span>
-                <span class="stat-lbl">updated</span>
+                <span class="stat-lbl">{t("import.stat_updated")}</span>
               </div>
               {#if result.skipped > 0}
                 <div class="stat">
                   <span class="stat-num skipped">
                     {result.skipped}
                   </span>
-                  <span class="stat-lbl">unchanged</span>
+                  <span class="stat-lbl">{t("import.stat_unchanged")}</span>
                 </div>
               {/if}
               {#if result.errors > 0}
@@ -284,7 +280,7 @@
                   <span class="stat-num errors">
                     {result.errors}
                   </span>
-                  <span class="stat-lbl">errors</span>
+                  <span class="stat-lbl">{t("import.stat_errors")}</span>
                 </div>
               {/if}
             </div>
@@ -294,13 +290,13 @@
                 class="modal-btn"
                 onclick={handleReset}
               >
-                Import more
+                {t("import.import_more")}
               </button>
               <button
                 class="modal-btn modal-btn-primary"
                 onclick={handleClose}
               >
-                Done
+                {t("import.done")}
               </button>
             </div>
           </div>
@@ -329,12 +325,9 @@
 
           <p class="hint">
             {#if provider === "claude-ai"}
-              Upload <code>conversations.json</code> or
-              the <code>.zip</code> from a Claude.ai data
-              export.
+              {@html t("import.hint_claude")}
             {:else}
-              Upload the <code>.zip</code> from a ChatGPT
-              data export.
+              {@html t("import.hint_chatgpt")}
             {/if}
           </p>
 
@@ -344,7 +337,7 @@
               <div class="modal-spinner"></div>
               {#if phase === "indexing"}
                 <span class="importing-label">
-                  Rebuilding search index...
+                  {t("import.rebuilding_index")}
                 </span>
               {:else if progressStats}
                 {@const n =
@@ -353,12 +346,11 @@
                   progressStats.skipped +
                   progressStats.errors}
                 <span class="importing-label">
-                  {n} conversation{n !== 1 ? "s" : ""}
-                  processed...
+                  {t("import.processing", { n })}
                 </span>
               {:else}
                 <span class="importing-label">
-                  Importing conversations...
+                  {t("import.importing")}
                 </span>
               {/if}
             </div>
@@ -385,8 +377,8 @@
                 <button
                   class="file-clear"
                   onclick={clearFile}
-                  title="Remove file"
-                  aria-label="Remove file"
+                  title={t("import.remove_file")}
+                  aria-label={t("import.remove_file")}
                 >
                   <svg
                     width="14"
@@ -436,10 +428,10 @@
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <span class="drop-label">
-                Drop your file here
+                {t("import.drop_file")}
               </span>
               <span class="drop-sub">
-                or click to browse
+                {t("import.click_browse")}
               </span>
             </div>
           {/if}
@@ -472,14 +464,14 @@
               onclick={handleClose}
               disabled={importing}
             >
-              Cancel
+              {t("modal.cancel")}
             </button>
             <button
               class="modal-btn modal-btn-primary"
               onclick={handleImport}
               disabled={!selectedFile || importing}
             >
-              Import
+              {t("import.import_btn")}
             </button>
           </div>
         {/if}
@@ -563,15 +555,6 @@
     color: var(--text-muted);
     margin-bottom: 12px;
     line-height: 1.5;
-  }
-
-  .hint code {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    background: var(--bg-inset);
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
   }
 
   /* ── Drop zone (shared) ── */

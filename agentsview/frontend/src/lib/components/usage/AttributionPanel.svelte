@@ -5,6 +5,7 @@
     type AttributionView,
   } from "../../stores/usage.svelte.js";
   import { projectColor } from "../../utils/projectColor.js";
+  import { t } from "../../i18n/index.js";
   import Treemap from "./Treemap.svelte";
 
   function fmtCost(v: number): string {
@@ -166,7 +167,7 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               class="rail-row"
-              title="Click to hide {row.label}"
+              title={t("usage.click_to_hide", { label: row.label })}
               onclick={() => handleSelect(row.id)}
             >
               <span class="rail-rank">{i + 1}</span>
@@ -187,7 +188,7 @@
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
             class="list-row"
-            title="Click to hide {row.label}"
+            title={t("usage.click_to_hide", { label: row.label })}
             onclick={() => handleSelect(row.id)}
           >
             <span class="list-rank">{i + 1}</span>

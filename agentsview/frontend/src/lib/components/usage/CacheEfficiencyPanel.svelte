@@ -1,6 +1,7 @@
 <script lang="ts">
   import { usage } from "../../stores/usage.svelte.js";
   import { savingsState } from "../../utils/usageSavings.js";
+  import { t } from "../../i18n/index.js";
 
   function fmtTokens(v: number): string {
     if (v >= 1_000_000_000) {
@@ -40,19 +41,19 @@
     if (total === 0) return [];
     return [
       {
-        label: "Cache Reads",
+        label: t("usage.cache_reads"),
         value: cs.cacheReadTokens,
         pct: cs.cacheReadTokens / total,
         color: "var(--accent-green)",
       },
       {
-        label: "Cache Writes",
+        label: t("usage.cache_writes"),
         value: cs.cacheCreationTokens,
         pct: cs.cacheCreationTokens / total,
         color: "var(--accent-teal)",
       },
       {
-        label: "Uncached Input",
+        label: t("usage.uncached_input"),
         value: cs.uncachedInputTokens,
         pct: cs.uncachedInputTokens / total,
         color: "var(--accent-amber)",
