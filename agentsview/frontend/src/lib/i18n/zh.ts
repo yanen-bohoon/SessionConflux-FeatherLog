@@ -283,6 +283,9 @@ export const zh: Record<string, string> = {
   'trends.y_axis_raw': '出现次数',
   'trends.no_data': '无趋势数据',
   'trends.no_occurrences': '此范围内无出现',
+  'trends.term_col': '词条',
+  'trends.count_col': '次数',
+  'trends.per_1k_col': '每千条消息',
 
   // Insights page
   'insights.mode_daily': '每日活动',

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TrendsSeries } from "../../api/types.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     series: TrendsSeries[];
@@ -37,8 +38,8 @@
   <table class="term-table">
     <thead>
       <tr>
-        <th>Term</th>
-        <th class="count-col">{normalized ? "Per 1k messages" : "Count"}</th>
+        <th>{t("trends.term_col")}</th>
+        <th class="count-col">{normalized ? t("trends.per_1k_col") : t("trends.count_col")}</th>
       </tr>
     </thead>
     <tbody>

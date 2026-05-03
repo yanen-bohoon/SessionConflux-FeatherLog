@@ -279,6 +279,9 @@ export const en: Record<string, string> = {
   'trends.y_axis_raw': 'Occurrences',
   'trends.no_data': 'No trend data',
   'trends.no_occurrences': 'No occurrences in this range',
+  'trends.term_col': 'Term',
+  'trends.count_col': 'Count',
+  'trends.per_1k_col': 'Per 1k messages',
 
   // Insights page
   'insights.mode_daily': 'Daily Activity',

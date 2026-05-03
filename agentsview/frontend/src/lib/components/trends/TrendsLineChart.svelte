@@ -209,7 +209,7 @@
 
       {#if !hasData}
         <text class="empty-svg" x={width / 2} y={HEIGHT / 2}>
-          No occurrences in this range
+          {t("trends.no_occurrences")}
         </text>
       {/if}
     </svg>
