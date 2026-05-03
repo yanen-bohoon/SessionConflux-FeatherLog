@@ -1,6 +1,7 @@
 <script lang="ts">
   import { inSessionSearch } from "../../stores/inSessionSearch.svelte.js";
   import { tick } from "svelte";
+  import { t } from "../../i18n/index.js";
 
   let inputRef: HTMLInputElement | undefined = $state(undefined);
 
@@ -35,13 +36,13 @@
   let counterText = $derived.by(() => {
     if (!hasQuery) return "";
     if (inSessionSearch.loading) return "…";
-    if (inSessionSearch.matches.length === 0) return "No results";
-    return `${inSessionSearch.currentMatchIndex + 1} of ${inSessionSearch.matches.length}`;
+    if (inSessionSearch.matches.length === 0) return t("find.no_results");
+    return t("find.counter", { current: inSessionSearch.currentMatchIndex + 1, total: inSessionSearch.matches.length });
   });
 </script>
 
 {#if inSessionSearch.isOpen}
-  <div class="find-bar" role="search" aria-label="Find in session">
+  <div class="find-bar" role="search" aria-label={t("find.label")}>
     <svg
       class="find-icon"
       width="13"
@@ -58,14 +59,14 @@
       class="find-input"
       class:no-results={noResults}
       type="text"
-      placeholder="Find in session…"
+      placeholder={t("find.placeholder")}
       spellcheck="false"
       autocomplete="off"
       value={inSessionSearch.query}
       oninput={(e) =>
         (inSessionSearch.query = (e.currentTarget as HTMLInputElement).value)}
       onkeydown={handleKeydown}
-      aria-label="Search query"
+      aria-label={t("find.search_query")}
     />
 
     {#if hasQuery}
@@ -77,11 +78,11 @@
     <div class="nav-buttons">
       <button
         class="nav-btn"
-        title="Previous match (Shift+Enter)"
+        title={t("find.previous")}
         disabled={!hasMatches}
         onclick={() => inSessionSearch.prev()}
         tabindex="0"
-        aria-label="Previous match"
+        aria-label={t("find.previous_aria")}
       >
         <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
           <path d="M7.646 4.646a.5.5 0 01.708 0l6 6a.5.5 0 01-.708.708L8 5.707l-5.646 5.647a.5.5 0 01-.708-.708l6-6z"/>
@@ -89,11 +90,11 @@
       </button>
       <button
         class="nav-btn"
-        title="Next match (Enter)"
+        title={t("find.next")}
         disabled={!hasMatches}
         onclick={() => inSessionSearch.next()}
         tabindex="0"
-        aria-label="Next match"
+        aria-label={t("find.next_aria")}
       >
         <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
           <path d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>
@@ -105,10 +106,10 @@
 
     <button
       class="close-btn"
-      title="Close (Esc)"
+      title={t("find.close")}
       onclick={() => inSessionSearch.close()}
       tabindex="0"
-      aria-label="Close find bar"
+      aria-label={t("find.close_aria")}
     >
       <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
         <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>

@@ -25,6 +25,7 @@
   import { inSessionSearch } from "../../stores/inSessionSearch.svelte.js";
   import { messages as messagesStore } from "../../stores/messages.svelte.js";
   import { ui } from "../../stores/ui.svelte.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     session: Session | undefined;
@@ -205,14 +206,14 @@
         opener_id: opener.id,
       });
       if (resp.launched) {
-        showFeedback(`Resumed in ${resp.terminal ?? opener.name}`);
+        showFeedback(t("session.resumed_in", { terminal: resp.terminal ?? opener.name }));
         return;
       }
       // Launch failed — fall back to clipboard copy.
       if (resp.command) {
         const cmd = formatResumeResponseCommand(session.agent, resp);
         const ok = cmd ? await copyToClipboard(cmd) : false;
-        showFeedback(ok ? "Command copied!" : "Failed");
+        showFeedback(ok ? t("session.command_copied") : t("session.failed"));
         return;
       }
     } catch {
@@ -221,9 +222,9 @@
     const cmd = buildResumeCommand(session.agent, session.id);
     if (cmd) {
       const ok = await copyToClipboard(cmd);
-      showFeedback(ok ? "Command copied!" : "Failed");
+      showFeedback(ok ? t("session.command_copied") : t("session.failed"));
     } else {
-      showFeedback("Not supported");
+      showFeedback(t("session.not_supported"));
     }
   }
 
@@ -253,11 +254,11 @@
   async function handleCopyFilePath() {
     showOpenMenu = false;
     if (!sessionDir) {
-      showFeedback("No path available");
+      showFeedback(t("session.no_path"));
       return;
     }
     const ok = await copyToClipboard(sessionDir);
-    showFeedback(ok ? "Path copied!" : "Failed");
+    showFeedback(ok ? t("session.path_copied") : t("session.failed"));
   }
 
   async function handleOpenIn(opener: Opener) {
@@ -265,9 +266,9 @@
     showOpenMenu = false;
     try {
       await openSession(session.id, opener.id);
-      showFeedback(`Opened in ${opener.name}`);
+      showFeedback(t("session.opened_in", { name: opener.name }));
     } catch {
-      showFeedback("Failed to open");
+      showFeedback(t("session.failed_to_open"));
     }
   }
 
@@ -278,14 +279,14 @@
       const resp = await resumeSession(session.id, {});
       if (resp.launched) {
         showFeedback(
-          `Resumed in ${resp.terminal ?? "terminal"}`,
+          t("session.resumed_in", { terminal: resp.terminal ?? t("session.terminal") }),
         );
         return;
       }
       if (resp.command) {
         const cmd = formatResumeResponseCommand(session.agent, resp);
         const ok = cmd ? await copyToClipboard(cmd) : false;
-        showFeedback(ok ? "Command copied!" : "Failed");
+        showFeedback(ok ? t("session.command_copied") : t("session.failed"));
         return;
       }
     } catch {
@@ -294,9 +295,9 @@
     const cmd = buildResumeCommand(session.agent, session.id);
     if (cmd) {
       const ok = await copyToClipboard(cmd);
-      showFeedback(ok ? "Command copied!" : "Failed");
+      showFeedback(ok ? t("session.command_copied") : t("session.failed"));
     } else {
-      showFeedback("Not supported");
+      showFeedback(t("session.not_supported"));
     }
   }
 
@@ -389,7 +390,7 @@
 
 <div class="session-breadcrumb">
   <button class="breadcrumb-link" onclick={onBack}>
-    Sessions
+    {t("session.back")}
   </button>
   <span class="breadcrumb-sep">/</span>
   {#if renaming}
@@ -433,7 +434,7 @@
         style:color={gradeStyle.text}
         style:border-color={gradeStyle.border}
         onclick={() => ui.toggleSignalPanel()}
-        title="Session health"
+        title={t("session.health")}
       >
         {getGradeLabel(session.health_grade)}
       </button>
@@ -443,8 +444,8 @@
             class="resume-btn"
             class:has-feedback={openFeedback !== ""}
             onclick={(e) => { e.stopPropagation(); showOpenMenu = !showOpenMenu; }}
-            title={canResume ? "Resume session in terminal" : "Session actions"}
-            aria-label={canResume ? "Resume session" : "Session actions"}
+            title={canResume ? t("session.resume_terminal") : t("session.session_actions")}
+            aria-label={canResume ? t("session.resume") : t("session.session_actions")}
           >
             {#if openFeedback}
               <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -452,7 +453,7 @@
               </svg>
               {openFeedback}
             {:else}
-              {canResume ? "Resume" : "Open"}
+              {canResume ? t("session.resume") : t("session.open")}
               <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/>
               </svg>
@@ -476,7 +477,7 @@
                       <path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v3.585a.746.746 0 010 .83v3.585a.747.747 0 010 .83v3.67A1.75 1.75 0 0114.25 16H1.75A1.75 1.75 0 010 14.25V1.75zM1.5 6.5v3h13v-3h-13zm0 4.5v3.25c0 .138.112.25.25.25h12.5a.25.25 0 00.25-.25V11h-13zm13-5.5v-3.25a.25.25 0 00-.25-.25H1.75a.25.25 0 00-.25.25V5.5h13z"/>
                     </svg>
                   </span>
-                  <span class="open-menu-name">Default terminal</span>
+                  <span class="open-menu-name">{t("session.default_terminal")}</span>
                 </button>
                 <div class="open-menu-divider"></div>
                 <button class="open-menu-item" onclick={handleCopyResumeCommand}>
@@ -486,7 +487,7 @@
                       <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/>
                     </svg>
                   </span>
-                  <span class="open-menu-name">Copy command</span>
+                  <span class="open-menu-name">{t("session.copy_command")}</span>
                 </button>
               {/if}
               {#if isLocal}
@@ -496,11 +497,11 @@
                     <path fill-rule="evenodd" d="M3.75 1.5a.25.25 0 00-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 00.25-.25V6H9.75A1.75 1.75 0 018 4.25V1.5H3.75zm5.75.56v2.19c0 .138.112.25.25.25h2.19L9.5 2.06zM2 1.75C2 .784 2.784 0 3.75 0h5.086c.464 0 .909.184 1.237.513l3.414 3.414c.329.328.513.773.513 1.237v9.086A1.75 1.75 0 0112.25 16h-8.5A1.75 1.75 0 012 14.25V1.75z"/>
                   </svg>
                 </span>
-                <span class="open-menu-name">Copy directory path</span>
+                <span class="open-menu-name">{t("session.copy_dir_path")}</span>
               </button>
               {#if editorOpeners.length > 0 || fileOpeners.length > 0}
                 <div class="open-menu-divider"></div>
-                <div class="open-menu-section">Open in</div>
+                <div class="open-menu-section">{t("session.open_in")}</div>
                 {#each editorOpeners as opener (opener.id)}
                   <button
                     class="open-menu-item"
@@ -556,7 +557,7 @@
           onclick={() => copySessionId(rawId, session.id)}
         >
           {copiedSessionId === session.id
-            ? "Copied!"
+            ? t("session.copied")
             : rawId.slice(0, 8)}
         </button>
       {/if}
@@ -578,9 +579,9 @@
         <button
           class="link-btn"
           class:link-btn--copied={copiedLinkId === session?.id}
-          title="Copy link to session"
+          title={t("session.copy_link")}
           onclick={copySessionLink}
-          aria-label="Copy link to session"
+          aria-label={t("session.copy_link")}
         >
           {#if copiedLinkId === session?.id}
             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
@@ -596,9 +597,9 @@
         <button
           class="minimap-btn"
           class:minimap-btn--active={ui.vitalsOpen}
-          title="Session vital signs"
+          title={t("session.vital_signs")}
           onclick={() => ui.toggleVitals()}
-          aria-label="Toggle session vital signs"
+          aria-label={t("session.toggle_vitals")}
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
             <path d="M1 14V8h2v6H1zm4 0V2h2v12H5zm4 0V5h2v9H9zm4 0V9h2v5h-2z"/>
@@ -607,9 +608,9 @@
         <button
           class="find-btn"
           class:find-btn--active={inSessionSearch.isOpen}
-          title="Find in session (/)"
+          title={t("session.find")}
           onclick={() => inSessionSearch.toggle()}
-          aria-label="Find in session"
+          aria-label={t("find.label")}
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
             <path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.099zm-5.242 1.156a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/>
@@ -617,7 +618,7 @@
         </button>
         <button
           class="actions-btn"
-          title="Session actions"
+          title={t("session.session_actions")}
           bind:this={menuBtnEl}
           onclick={toggleMenu}
         >
@@ -638,13 +639,13 @@
               class="actions-menu-item"
               onclick={startRename}
             >
-              Rename
+              {t("session.rename")}
             </button>
             <button
               class="actions-menu-item danger"
               onclick={handleDelete}
             >
-              Delete
+              {t("session.delete")}
             </button>
           </div>
         {/if}

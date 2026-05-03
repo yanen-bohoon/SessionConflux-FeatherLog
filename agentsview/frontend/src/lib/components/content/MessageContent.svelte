@@ -23,6 +23,7 @@
   import { ui } from "../../stores/ui.svelte.js";
   import { pins } from "../../stores/pins.svelte.js";
   import { sessions } from "../../stores/sessions.svelte.js";
+  import { t } from "../../i18n/index.js";
   import { applyHighlight } from "../../utils/highlight.js";
   import { renderMarkdown } from "../../utils/markdown.js";
   import { displayToolName } from "../../utils/toolDisplay.js";
@@ -132,11 +133,11 @@
 
   /** Context-aware role labels based on session type. */
   let roleLabel = $derived.by(() => {
-    if (!isUser) return "Assistant";
-    if (isSubagentContext) return "Agent";
-    if (sessionKind === "teammate") return "Teammate";
-    if (sessionKind === "subagent") return "Agent";
-    return "User";
+    if (!isUser) return t("role.assistant");
+    if (isSubagentContext) return t("role.agent");
+    if (sessionKind === "teammate") return t("role.teammate");
+    if (sessionKind === "subagent") return t("role.agent");
+    return t("role.user");
   });
 
   let roleIcon = $derived.by(() => {
@@ -268,7 +269,7 @@
         message.ordinal,
       );
       clearTimeout(pinTimer);
-      pinFeedback = wasPinned ? "Unpinned" : "Pinned";
+      pinFeedback = wasPinned ? t("message.unpinned") : t("message.pinned");
       pinTimer = setTimeout(() => { pinFeedback = ""; }, 1500);
     } catch {
       // silently fail
@@ -298,7 +299,7 @@
     <button
       type="button"
       class="copy-btn"
-      title={copied ? "Copied!" : "Copy message"}
+      title={copied ? t("message.copied") : t("message.copy")}
       onclick={handleCopy}
     >
       {#if copied}
@@ -316,7 +317,7 @@
       type="button"
       class="pin-btn"
       class:pinned
-      title={pinned ? "Unpin message" : "Pin message"}
+      title={pinned ? t("message.unpin") : t("message.pin")}
       onclick={handleTogglePin}
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

@@ -16,6 +16,7 @@
   import CallRow from "./CallRow.svelte";
   import CallGroup from "./CallGroup.svelte";
   import SubagentCalls from "./SubagentCalls.svelte";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     sessionId: string;
@@ -215,7 +216,7 @@
     const dur =
       turn.duration_ms != null
         ? formatDuration(turn.duration_ms)
-        : "running";
+        : t("vitals.running_turn");
     return `${turn.primary_category} · ${dur}`;
   }
 
@@ -228,10 +229,10 @@
   {#if timing}
     <section class="v-section">
       <header class="v-h">
-        <span>Session</span>
+        <span>{t("vitals.session")}</span>
         <span class="v-meta" class:live={timing.running}>
           {#if timing.running}
-            running {formatDuration(timing.total_duration_ms)}+
+            {t("vitals.running", { duration: formatDuration(timing.total_duration_ms) })}
           {:else}
             {formatDuration(timing.total_duration_ms)}
           {/if}
@@ -239,23 +240,23 @@
       </header>
       <div class="stat-grid">
         <div>
-          <div class="lbl">tool calls</div>
+          <div class="lbl">{t("vitals.tool_calls")}</div>
           <div class="val">{timing.tool_call_count}</div>
         </div>
         <div>
-          <div class="lbl">tool time</div>
+          <div class="lbl">{t("vitals.tool_time")}</div>
           <div class="val" class:live={timing.running}>
             {formatDuration(timing.tool_duration_ms)}{timing.running ? "+" : ""}
           </div>
         </div>
         <div>
-          <div class="lbl">slowest call</div>
+          <div class="lbl">{t("vitals.slowest_call")}</div>
           {#if timing.slowest_call}
             {@const slowest = timing.slowest_call}
             <button
               type="button"
               class="val slow val-link"
-              title="Jump to call"
+              title={t("vitals.jump_to_call")}
               onclick={() => scrollToCall(slowest)}
             >
               {displayToolName(slowest)} · {formatDuration(slowest.duration_ms ?? 0)}
@@ -265,11 +266,11 @@
           {/if}
         </div>
         <div>
-          <div class="lbl">turns</div>
+          <div class="lbl">{t("vitals.turns")}</div>
           <div class="val">{timing.turn_count}</div>
         </div>
         <div>
-          <div class="lbl">sub-agents</div>
+          <div class="lbl">{t("vitals.sub_agents")}</div>
           <div class="val">{timing.subagent_count}</div>
         </div>
       </div>
@@ -278,18 +279,18 @@
     {#if timing.by_category.length > 0}
       <section class="v-section">
         <header class="v-h">
-          <span>Time spent</span>
+          <span>{t("vitals.time_spent")}</span>
           {#if categoryFilter}
             <button
               class="filter-chip"
               style="color: {categoryToken(categoryFilter)}; border-color: {categoryToken(categoryFilter)};"
               onclick={() => (categoryFilter = null)}
-              aria-label="clear category filter"
+              aria-label={t("vitals.clear_category")}
             >
               {categoryFilter}<span class="x">×</span>
             </button>
           {:else}
-            <span class="v-meta">completed turns · click to highlight</span>
+            <span class="v-meta">{t("vitals.completed_hint")}</span>
           {/if}
         </header>
         {#each timing.by_category as cat (cat.category)}
@@ -319,26 +320,26 @@
     {#if timing.turns.length > 0}
       <section class="v-section">
         <header class="v-h">
-          <span>Timeline</span>
-          <span class="v-meta">click marks to scroll</span>
+          <span>{t("vitals.timeline")}</span>
+          <span class="v-meta">{t("vitals.click_marks")}</span>
         </header>
 
         <div class="lane-row">
-          <span class="lane-label">turns</span>
+          <span class="lane-label">{t("vitals.turns_lane")}</span>
           <span class="lane-track">
-            {#each timing.turns as t (t.message_id)}
-              {@const isLive = t.duration_ms == null}
+            {#each timing.turns as turn (turn.message_id)}
+              {@const isLive = turn.duration_ms == null}
               <button
                 class="lane-mark"
                 class:live={isLive}
-                class:dimmed={categoryFilter !== null && t.primary_category !== categoryFilter}
-                style="left: {turnLeftPct(t)}%; width: {turnWidthPct(t)}%; {isLive
+                class:dimmed={categoryFilter !== null && turn.primary_category !== categoryFilter}
+                style="left: {turnLeftPct(turn)}%; width: {turnWidthPct(turn)}%; {isLive
                   ? ''
-                  : `background: ${categoryToken(t.primary_category)};`}"
-                title={turnTitle(t)}
-                onclick={() => scrollToTurn(t)}
+                  : `background: ${categoryToken(turn.primary_category)};`}"
+                title={turnTitle(turn)}
+                onclick={() => scrollToTurn(turn)}
                 type="button"
-                aria-label="Jump to {t.primary_category} turn at {t.started_at}"
+                aria-label={t("vitals.jump_to_turn", { cat: turn.primary_category, time: turn.started_at })}
               ></button>
             {/each}
           </span>
@@ -353,18 +354,18 @@
           >
             <span class="lane-label">{cat.category}</span>
             <span class="lane-track">
-              {#each timing.turns.filter((tt) => tt.primary_category === cat.category) as t (t.message_id)}
-                {@const isLive = t.duration_ms == null}
+              {#each timing.turns.filter((tt) => tt.primary_category === cat.category) as turn (turn.message_id)}
+                {@const isLive = turn.duration_ms == null}
                 <button
                   class="lane-mark"
                   class:live={isLive}
-                  style="left: {turnLeftPct(t)}%; width: {turnWidthPct(t)}%; {isLive
+                  style="left: {turnLeftPct(turn)}%; width: {turnWidthPct(turn)}%; {isLive
                     ? ''
                     : `background: ${categoryToken(cat.category)};`}"
-                  title={turnTitle(t)}
-                  onclick={() => scrollToTurn(t)}
+                  title={turnTitle(turn)}
+                  onclick={() => scrollToTurn(turn)}
                   type="button"
-                  aria-label="Jump to {cat.category} turn at {t.started_at}"
+                  aria-label={t("vitals.jump_to_turn", { cat: cat.category, time: turn.started_at })}
                 ></button>
               {/each}
             </span>
@@ -392,11 +393,9 @@
     {#if timing.turns.length > 0}
       <section class="v-section">
         <header class="v-h">
-          <span>Calls</span>
+          <span>{t("vitals.calls")}</span>
           <span class="v-meta">
-            {timing.tool_call_count} call{timing.tool_call_count === 1
-              ? ""
-              : "s"}{timing.running ? " · 1 running" : ""}
+            {t("vitals.call_suffix", { n: timing.tool_call_count })}{timing.running ? " · 1 running" : ""}
           </span>
         </header>
         <div class="scale-axis">
@@ -410,7 +409,7 @@
           >
           <span class:now={timing.running}
             >{timing.running
-              ? "now"
+              ? t("vitals.now")
               : formatDuration(timing.total_duration_ms)}</span
           >
         </div>

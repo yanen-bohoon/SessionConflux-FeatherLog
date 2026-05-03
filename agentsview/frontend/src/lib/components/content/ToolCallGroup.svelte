@@ -14,6 +14,7 @@
   import ToolBlock from "./ToolBlock.svelte";
   import ParallelGroup from "./ParallelGroup.svelte";
   import { displayToolName } from "../../utils/toolDisplay.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     messages: Message[];
@@ -49,7 +50,7 @@
   );
 
   let label = $derived(
-    totalCalls === 1 ? "1 tool call" : `${totalCalls} tool calls`,
+    t("tool.n_tool_calls", { n: totalCalls }),
   );
 
   /** Index turn timings by message id for O(1) lookup. */
@@ -165,7 +166,7 @@
     <button
       type="button"
       class="copy-btn"
-      title={copied ? "Copied!" : "Copy tool calls"}
+      title={copied ? t("tool.copied") : t("tool.copy_tool_calls")}
       onclick={handleCopy}
     >
       {#if copied}

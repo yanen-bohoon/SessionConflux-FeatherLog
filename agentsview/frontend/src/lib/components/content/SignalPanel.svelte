@@ -9,6 +9,7 @@
     getPenaltyLabel,
     getBasisLabel,
   } from "../../utils/grade.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     session: Session;
@@ -50,14 +51,14 @@
 <div class="signal-panel">
   {#if !hasUsefulData}
     <div class="empty-state">
-      Not enough activity to analyze this session.
+      {t("signal.empty")}
     </div>
   {:else}
     <div class="signal-row">
       <span
         class="grade-large"
         style:color={gradeStyle.text}
-        title={`Health grade ${getGradeLabel(session.health_grade)}`}
+        title={t("signal.health_grade", { grade: getGradeLabel(session.health_grade) })}
       >
         {getGradeLabel(session.health_grade)}
       </span>
@@ -80,11 +81,11 @@
 
       {#if basis.length > 0}
         <span class="basis-tags">
-          <span class="basis-heading">Based on:</span>
+          <span class="basis-heading">{t("signal.based_on")}</span>
           {#each basis as b}
             <span
               class="basis-tag"
-              title={`${getBasisLabel(b)} factored into the score`}
+              title={`${getBasisLabel(b)} ${t("signal.factored")}`}
             >
               {getBasisLabel(b)}
             </span>
@@ -97,29 +98,29 @@
           class="compaction-chip"
           class:mid-task={midTaskCompactions > 0}
           title={midTaskCompactions > 0
-            ? `${midTaskCompactions} of ${compactions} interrupted active work`
-            : "Context compactions in this session"}
+            ? t("signal.interrupted", { n: midTaskCompactions, total: compactions })
+            : t("signal.context_compactions")}
         >
           {compactions}
-          {compactions === 1 ? "compaction" : "compactions"}
+          {compactions === 1 ? t("signal.compaction") : t("signal.compactions")}
           {#if midTaskCompactions > 0}
-            &middot; {midTaskCompactions} mid-task
+            &middot; {midTaskCompactions} {t("signal.mid_task")}
           {/if}
         </span>
       {/if}
 
       {#if !hasPenalties}
-        <span class="no-penalties">No penalties</span>
+        <span class="no-penalties">{t("signal.no_penalties")}</span>
       {/if}
     </div>
 
     {#if hasPenalties && penalties}
       <div class="penalties-row">
-        <span class="penalties-heading">Penalties:</span>
+        <span class="penalties-heading">{t("signal.penalties")}</span>
         {#each Object.entries(penalties) as [key, value]}
           <div
             class="penalty"
-            title={`${getPenaltyLabel(key)} subtracted ${value} from the score`}
+            title={t("signal.subtracted", { label: getPenaltyLabel(key), value })}
           >
             <span class="penalty-value">-{value}</span>
             <span class="penalty-label">
