@@ -18,17 +18,17 @@
 
   const cards: Card[] = [
     {
-      label: "Sessions",
+      label: t("analytics.sessions"),
       value: () =>
         formatNum(analytics.summary?.total_sessions ?? 0),
     },
     {
-      label: "Messages",
+      label: t("analytics.messages"),
       value: () =>
         formatNum(analytics.summary?.total_messages ?? 0),
     },
     {
-      label: "Projects",
+      label: t("analytics.projects"),
       value: () =>
         String(analytics.summary?.active_projects ?? 0),
     },
@@ -38,7 +38,7 @@
         String(analytics.summary?.active_days ?? 0),
     },
     {
-      label: "Messages/Session",
+      label: t("analytics.card_messages_per_session"),
       value: () => {
         const s = analytics.summary;
         if (!s) return "-";
@@ -47,11 +47,11 @@
       sub: () => {
         const s = analytics.summary;
         if (!s) return "";
-        return `med ${s.median_messages} / p90 ${s.p90_messages}`;
+        return t("analytics.card_med_p90", { med: s.median_messages, p90: s.p90_messages });
       },
     },
     {
-      label: "Concentration",
+      label: t("analytics.card_concentration"),
       value: () => pct(analytics.summary?.concentration ?? 0),
       sub: () => analytics.summary?.most_active_project ?? "",
     },
@@ -87,7 +87,7 @@
       class="retry-btn"
       onclick={() => analytics.fetchSummary()}
     >
-      Retry
+      {t("common.retry")}
     </button>
   </div>
 {/if}

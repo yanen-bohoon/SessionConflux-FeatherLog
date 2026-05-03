@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
 
   const BAR_HEIGHT = 120;
   const LABEL_HEIGHT = 20;
@@ -87,7 +88,7 @@
 
   function formatDateLabel(date: string): string {
     const d = new Date(date + "T00:00:00");
-    return d.toLocaleDateString("en", {
+    return d.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
     });
@@ -107,15 +108,16 @@
       e.currentTarget as SVGElement
     ).getBoundingClientRect();
     const d = new Date(bar.date + "T00:00:00");
-    const label = d.toLocaleDateString("en", {
+    const label = d.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-    const lines = [`${label}: ${bar.value.toLocaleString()} ${metric}`];
+    const metricLabel = metric === "messages" ? t("analytics.messages") : t("analytics.sessions");
+    const lines = [`${label}: ${bar.value.toLocaleString()} ${metricLabel}`];
     if (metric === "messages") {
       lines.push(
-        `user: ${bar.userMessages} / assistant: ${bar.assistantMessages}`,
+        t("analytics.tooltip_user_assistant", { user: String(bar.userMessages), assistant: String(bar.assistantMessages) }),
       );
     }
     tooltip = {
@@ -171,14 +173,14 @@
           class:active={metric === "messages"}
           onclick={() => (metric = "messages")}
         >
-          Messages
+          {t("analytics.messages")}
         </button>
         <button
           class="toggle-btn"
           class:active={metric === "sessions"}
           onclick={() => (metric = "sessions")}
         >
-          Sessions
+          {t("analytics.sessions")}
         </button>
       </div>
       <div class="granularity-toggle">
@@ -187,21 +189,21 @@
           class:active={analytics.granularity === "day"}
           onclick={() => analytics.setGranularity("day")}
         >
-          Day
+          {t("trends.day")}
         </button>
         <button
           class="toggle-btn"
           class:active={analytics.granularity === "week"}
           onclick={() => analytics.setGranularity("week")}
         >
-          Week
+          {t("trends.week")}
         </button>
         <button
           class="toggle-btn"
           class:active={analytics.granularity === "month"}
           onclick={() => analytics.setGranularity("month")}
         >
-          Month
+          {t("trends.month")}
         </button>
       </div>
     </div>
@@ -214,7 +216,7 @@
         class="retry-btn"
         onclick={() => analytics.fetchActivity()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if chart.bars.length > 0}
@@ -284,7 +286,7 @@
       </div>
     {/if}
   {:else}
-    <div class="empty">No activity data</div>
+    <div class="empty">{t("analytics.no_activity_data")}</div>
   {/if}
 </div>
 

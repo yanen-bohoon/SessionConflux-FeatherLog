@@ -40,7 +40,7 @@
 
 <div class="velocity-container">
   <div class="velocity-header">
-    <h3 class="chart-title">Velocity</h3>
+    <h3 class="chart-title">{t("analytics.velocity")}</h3>
     <div class="tab-toggle">
       {#each (["overall", "agent", "complexity"] as const) as tab}
         <button
@@ -49,7 +49,7 @@
           onclick={() => (activeTab = tab)}
         >
           {tab === "overall"
-            ? "Overview"
+            ? t("analytics.overview")
             : tab === "agent"
               ? t("analytics.by_agent")
               : t("analytics.by_size")}
@@ -65,7 +65,7 @@
         class="retry-btn"
         onclick={() => analytics.fetchVelocity()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if velocity}
@@ -73,43 +73,43 @@
       {@const o = velocity.overall}
       <div class="metrics-grid">
         <div class="metric-card">
-          <div class="metric-label">Turn Cycle (p50)</div>
+          <div class="metric-label">{t("analytics.turn_cycle_p50")}</div>
           <div class="metric-value">
             {formatDuration(o.turn_cycle_sec.p50)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Turn Cycle (p90)</div>
+          <div class="metric-label">{t("analytics.turn_cycle_p90")}</div>
           <div class="metric-value">
             {formatDuration(o.turn_cycle_sec.p90)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">First Response (p50)</div>
+          <div class="metric-label">{t("analytics.first_response_p50")}</div>
           <div class="metric-value">
             {formatDuration(o.first_response_sec.p50)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">First Response (p90)</div>
+          <div class="metric-label">{t("analytics.first_response_p90")}</div>
           <div class="metric-value">
             {formatDuration(o.first_response_sec.p90)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Msgs / Active Min</div>
+          <div class="metric-label">{t("analytics.msgs_per_active_min")}</div>
           <div class="metric-value">
             {formatRate(o.msgs_per_active_min)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Chars / Active Min</div>
+          <div class="metric-label">{t("analytics.chars_per_active_min")}</div>
           <div class="metric-value">
             {formatRate(o.chars_per_active_min)}
           </div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Tools / Active Min</div>
+          <div class="metric-label">{t("analytics.tools_per_active_min")}</div>
           <div class="metric-value">
             {formatRate(o.tool_calls_per_active_min)}
           </div>
@@ -118,12 +118,12 @@
     {:else if breakdowns.length > 0}
       <div class="breakdown-table">
         <div class="breakdown-header">
-          <span class="col-label">Group</span>
-          <span class="col-num">Sessions</span>
-          <span class="col-num">Cycle p50</span>
-          <span class="col-num">Cycle p90</span>
-          <span class="col-num">Msgs/min</span>
-          <span class="col-num">Tools/min</span>
+          <span class="col-label">{t("analytics.col_group")}</span>
+          <span class="col-num">{t("analytics.col_sessions")}</span>
+          <span class="col-num">{t("analytics.col_cycle_p50")}</span>
+          <span class="col-num">{t("analytics.col_cycle_p90")}</span>
+          <span class="col-num">{t("analytics.col_msgs_per_min")}</span>
+          <span class="col-num">{t("analytics.col_tools_per_min")}</span>
         </div>
         {#each breakdowns as bd}
           <div class="breakdown-row">
@@ -145,10 +145,10 @@
         {/each}
       </div>
     {:else}
-      <div class="empty">No breakdown data</div>
+      <div class="empty">{t("analytics.no_breakdown_data")}</div>
     {/if}
   {:else}
-    <div class="empty">No data for this period</div>
+    <div class="empty">{t("analytics.no_data_period")}</div>
   {/if}
 </div>
 

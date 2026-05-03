@@ -374,6 +374,62 @@ export const en: Record<string, string> = {
   'analytics.output_tokens': 'Output Tokens',
   'analytics.active_days': 'Active Days',
 
+  // Analytics — empty states & shared
+  'analytics.no_data_period': 'No data for this period',
+  'analytics.no_activity_data': 'No activity data',
+  'analytics.no_breakdown_data': 'No breakdown data',
+  'analytics.no_tool_data': 'No tool usage data',
+  'analytics.clamp_note': 'Showing most recent year',
+
+  // Analytics — Session Shape
+  'analytics.session_shape': 'Session Shape',
+  'analytics.shape_autonomy': 'Autonomy',
+  'analytics.shape_sessions': '{n} sessions',
+
+  // Analytics — Summary Cards
+  'analytics.card_messages_per_session': 'Messages/Session',
+  'analytics.card_concentration': 'Concentration',
+  'analytics.card_med_p90': 'med {med} / p90 {p90}',
+
+  // Analytics — Velocity
+  'analytics.velocity': 'Velocity',
+  'analytics.overview': 'Overview',
+  'analytics.turn_cycle_p50': 'Turn Cycle (p50)',
+  'analytics.turn_cycle_p90': 'Turn Cycle (p90)',
+  'analytics.first_response_p50': 'First Response (p50)',
+  'analytics.first_response_p90': 'First Response (p90)',
+  'analytics.msgs_per_active_min': 'Msgs / Active Min',
+  'analytics.chars_per_active_min': 'Chars / Active Min',
+  'analytics.tools_per_active_min': 'Tools / Active Min',
+  'analytics.col_group': 'Group',
+  'analytics.col_sessions': 'Sessions',
+  'analytics.col_cycle_p50': 'Cycle p50',
+  'analytics.col_cycle_p90': 'Cycle p90',
+  'analytics.col_msgs_per_min': 'Msgs/min',
+  'analytics.col_tools_per_min': 'Tools/min',
+
+  // Analytics — Tool Usage
+  'analytics.tool_usage': 'Tool Usage',
+  'analytics.calls': '{n} calls',
+  'analytics.by_category': 'By Category',
+  'analytics.weekly_trend': 'Weekly Trend',
+  'analytics.total_label': 'total',
+
+  // Analytics — Hour of Week
+  'analytics.hour_messages': '{day} {hour}:00 - {value} messages',
+
+  // Analytics — Activity Timeline
+  'analytics.tooltip_user_assistant': 'user: {user} / assistant: {assistant}',
+
+  // Day names
+  'day.mon': 'Mon',
+  'day.tue': 'Tue',
+  'day.wed': 'Wed',
+  'day.thu': 'Thu',
+  'day.fri': 'Fri',
+  'day.sat': 'Sat',
+  'day.sun': 'Sun',
+
   // Terminal settings
   'terminal.desc': 'Configure how sessions are resumed in your terminal.',
   'terminal.mode_auto': 'Auto-detect',

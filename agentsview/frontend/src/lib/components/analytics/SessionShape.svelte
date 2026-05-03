@@ -1,15 +1,16 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
   import { router } from "../../stores/router.svelte.js";
+  import { t } from "../../i18n/index.js";
   import type { DistributionBucket } from "../../api/types.js";
 
   type View = "length" | "duration" | "autonomy";
   let activeView: View = $state("length");
 
-  const viewLabels: Record<View, string> = {
-    length: "Messages",
-    duration: "Duration",
-    autonomy: "Autonomy",
+  const viewLabelKeys: Record<View, string> = {
+    length: "analytics.messages",
+    duration: "analytics.duration",
+    autonomy: "analytics.shape_autonomy",
   };
 
   const activeBuckets = $derived.by(() => {
@@ -61,7 +62,7 @@
 
 <div class="shape-container">
   <div class="shape-header">
-    <h3 class="chart-title">Session Shape</h3>
+    <h3 class="chart-title">{t("analytics.session_shape")}</h3>
     <div class="view-toggle">
       {#each (["length", "duration", "autonomy"] as const) as v}
         <button
@@ -69,7 +70,7 @@
           class:active={activeView === v}
           onclick={() => (activeView = v)}
         >
-          {viewLabels[v]}
+          {t(viewLabelKeys[v])}
         </button>
       {/each}
     </div>
@@ -82,7 +83,7 @@
         class="retry-btn"
         onclick={() => analytics.fetchSessionShape()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if activeBuckets.length > 0}
@@ -108,11 +109,11 @@
     </div>
     {#if analytics.sessionShape}
       <div class="shape-footer">
-        {analytics.sessionShape.count} sessions
+        {t("analytics.shape_sessions", { n: analytics.sessionShape.count })}
       </div>
     {/if}
   {:else}
-    <div class="empty">No data for this period</div>
+    <div class="empty">{t("analytics.no_data_period")}</div>
   {/if}
 </div>
 

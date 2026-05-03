@@ -378,6 +378,62 @@ export const zh: Record<string, string> = {
   'analytics.output_tokens': '输出 Token',
   'analytics.active_days': '活跃天数',
 
+  // Analytics — empty states & shared
+  'analytics.no_data_period': '该时段无数据',
+  'analytics.no_activity_data': '无活动数据',
+  'analytics.no_breakdown_data': '无细分数据',
+  'analytics.no_tool_data': '无工具使用数据',
+  'analytics.clamp_note': '显示最近一年数据',
+
+  // Analytics — Session Shape
+  'analytics.session_shape': '会话形态',
+  'analytics.shape_autonomy': '自主度',
+  'analytics.shape_sessions': '{n} 个会话',
+
+  // Analytics — Summary Cards
+  'analytics.card_messages_per_session': '消息/会话',
+  'analytics.card_concentration': '集中度',
+  'analytics.card_med_p90': '中位 {med} / p90 {p90}',
+
+  // Analytics — Velocity
+  'analytics.velocity': '响应速度',
+  'analytics.overview': '总览',
+  'analytics.turn_cycle_p50': '轮次周期 (p50)',
+  'analytics.turn_cycle_p90': '轮次周期 (p90)',
+  'analytics.first_response_p50': '首次响应 (p50)',
+  'analytics.first_response_p90': '首次响应 (p90)',
+  'analytics.msgs_per_active_min': '消息/活跃分钟',
+  'analytics.chars_per_active_min': '字符/活跃分钟',
+  'analytics.tools_per_active_min': '工具调用/活跃分钟',
+  'analytics.col_group': '分组',
+  'analytics.col_sessions': '会话数',
+  'analytics.col_cycle_p50': '周期 p50',
+  'analytics.col_cycle_p90': '周期 p90',
+  'analytics.col_msgs_per_min': '消息/分钟',
+  'analytics.col_tools_per_min': '工具/分钟',
+
+  // Analytics — Tool Usage
+  'analytics.tool_usage': '工具使用',
+  'analytics.calls': '{n} 次调用',
+  'analytics.by_category': '按类别',
+  'analytics.weekly_trend': '周趋势',
+  'analytics.total_label': '总计',
+
+  // Analytics — Hour of Week
+  'analytics.hour_messages': '{day} {hour}:00 - {value} 条消息',
+
+  // Analytics — Activity Timeline
+  'analytics.tooltip_user_assistant': '用户: {user} / 助手: {assistant}',
+
+  // 星期
+  'day.mon': '周一',
+  'day.tue': '周二',
+  'day.wed': '周三',
+  'day.thu': '周四',
+  'day.fri': '周五',
+  'day.sat': '周六',
+  'day.sun': '周日',
+
   // Terminal settings
   'terminal.desc': '配置如何在终端中恢复会话。',
   'terminal.mode_auto': '自动检测',

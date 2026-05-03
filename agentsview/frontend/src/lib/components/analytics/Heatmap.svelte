@@ -8,7 +8,7 @@
   const CELL_STEP = CELL_SIZE + CELL_GAP;
   const LABEL_WIDTH = 36;
   const HEADER_HEIGHT = 16;
-  const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
+  const DAY_LABELS = ["", t("day.mon"), "", t("day.wed"), "", t("day.fri"), ""];
 
   const LEVEL_COLORS_LIGHT = [
     "var(--bg-inset)",
@@ -44,11 +44,11 @@
   function metricLabel(metric: HeatmapMetric): string {
     switch (metric) {
       case "sessions":
-        return "Sessions";
+        return t("analytics.sessions");
       case "output_tokens":
         return t("analytics.output_tokens");
       default:
-        return "Messages";
+        return t("analytics.messages");
     }
   }
 
@@ -66,7 +66,7 @@
       e.currentTarget as SVGElement
     ).getBoundingClientRect();
     const d = new Date(cell.date + "T00:00:00");
-    const label = d.toLocaleDateString("en", {
+    const label = d.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -115,7 +115,7 @@
         currentCol = [];
       }
 
-      const month = d.toLocaleString("en", { month: "short" });
+      const month = d.toLocaleString(undefined, { month: "short" });
       if (month !== lastMonth && dow <= 3) {
         monthLabels.push({ col: cols.length, label: month });
         lastMonth = month;
@@ -142,21 +142,21 @@
 
 <div class="heatmap-container">
   <div class="heatmap-header">
-    <h3 class="chart-title">Activity</h3>
+    <h3 class="chart-title">{t("analytics.activity")}</h3>
     <div class="metric-toggle">
       <button
         class="toggle-btn"
         class:active={analytics.metric === "messages"}
         onclick={() => analytics.setMetric("messages")}
       >
-        Messages
+        {t("analytics.messages")}
       </button>
       <button
         class="toggle-btn"
         class:active={analytics.metric === "sessions"}
         onclick={() => analytics.setMetric("sessions")}
       >
-        Sessions
+        {t("analytics.sessions")}
       </button>
       {#if supportsOutputTokens}
         <button
@@ -164,7 +164,7 @@
           class:active={analytics.metric === "output_tokens"}
           onclick={() => analytics.setMetric("output_tokens")}
         >
-          Output Tokens
+          {t("analytics.output_tokens")}
         </button>
       {/if}
     </div>
@@ -177,12 +177,12 @@
         class="retry-btn"
         onclick={() => analytics.fetchHeatmap()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if grid.cols.length > 0}
     {#if analytics.heatmap?.entries_from && analytics.heatmap.entries_from > analytics.from}
-      <div class="clamp-note">Showing most recent year</div>
+      <div class="clamp-note">{t("analytics.clamp_note")}</div>
     {/if}
     <div class="heatmap-scroll">
       <svg
@@ -252,7 +252,7 @@
       </div>
     {/if}
   {:else}
-    <div class="empty">No data for this period</div>
+    <div class="empty">{t("analytics.no_data_period")}</div>
   {/if}
 </div>
 

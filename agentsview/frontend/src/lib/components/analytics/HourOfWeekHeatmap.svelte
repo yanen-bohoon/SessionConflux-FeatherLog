@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analytics } from "../../stores/analytics.svelte.js";
+  import { t } from "../../i18n/index.js";
 
   const CELL_SIZE = 17;
   const CELL_GAP = 2;
@@ -7,7 +8,7 @@
   const ROW_LABEL_WIDTH = 29;
   const COL_LABEL_HEIGHT = 18;
   const DAY_LABELS = [
-    "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+    t("day.mon"), t("day.tue"), t("day.wed"), t("day.thu"), t("day.fri"), t("day.sat"), t("day.sun"),
   ];
 
   const LEVEL_COLORS_LIGHT = [
@@ -106,7 +107,7 @@
     tooltip = {
       x: rect.left + rect.width / 2,
       y: rect.top - 4,
-      text: `${day} ${h}:00 - ${value.toLocaleString()} messages`,
+      text: t("analytics.hour_messages", { day, hour: h, value: value.toLocaleString() }),
     };
   }
 
@@ -147,7 +148,7 @@
         class="retry-btn"
         onclick={() => analytics.fetchHourOfWeek()}
       >
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   {:else if grid}
@@ -236,7 +237,7 @@
       </div>
     {/if}
   {:else}
-    <div class="empty">No data for this period</div>
+    <div class="empty">{t("analytics.no_data_period")}</div>
   {/if}
 </div>
 
