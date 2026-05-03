@@ -8,6 +8,7 @@
     normalizeMessagePreview,
     previewMessage,
   } from "../../utils/messages.js";
+  import { t } from "../../i18n/index.js";
 
   interface Props {
     session: Session;
@@ -250,7 +251,7 @@
       class="tree-toggle"
       onclick={handleToggle}
       tabindex="-1"
-      aria-label={expanded ? "Collapse" : "Expand"}
+      aria-label={expanded ? t("session.collapse") : t("session.expand")}
     >
       <svg
         class="tree-arrow"
@@ -340,8 +341,8 @@
       class="star-btn"
       class:starred={isStarred}
       onclick={handleStar}
-      title={isStarred ? "Unstar session" : "Star session"}
-      aria-label={isStarred ? "Unstar session" : "Star session"}
+      title={isStarred ? t("session.unstar") : t("session.star")}
+      aria-label={isStarred ? t("session.unstar") : t("session.star")}
     >
       {#if isStarred}
         <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -375,10 +376,10 @@
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
   >
     <button class="context-menu-item" onclick={startRename}>
-      Rename
+      {t("session.rename")}
     </button>
     <button class="context-menu-item danger" onclick={handleDelete}>
-      Delete
+      {t("session.delete")}
     </button>
   </div>
 {/if}
