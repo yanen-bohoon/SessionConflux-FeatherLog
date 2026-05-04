@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Entry tracks upload and download state for a single session.
@@ -13,9 +14,9 @@ type Entry struct {
 	FileSize        int64  `json:"file_size"`
 	Mtime           int64  `json:"mtime"`
 	FileToken       string `json:"file_token"`
-	LastUploaded    string `json:"last_uploaded"` // ISO 8601
-	DownloadedToken string `json:"downloaded_token,omitempty"`
-	LastDownloaded  string `json:"last_downloaded,omitempty"` // ISO 8601
+	LastUploaded    time.Time `json:"last_uploaded"`
+	DownloadedToken string    `json:"downloaded_token,omitempty"`
+	LastDownloaded  time.Time `json:"last_downloaded,omitempty"`
 }
 
 // Store manages the state.json file.
@@ -81,12 +82,12 @@ func (s *Store) HasChanged(key string, fileSize, mtime int64) bool {
 }
 
 // MarkUploaded records a successful upload.
-func (s *Store) MarkUploaded(key string, fileSize, mtime int64, fileToken string, timestamp string) {
+func (s *Store) MarkUploaded(key string, fileSize, mtime int64, fileToken string, t time.Time) {
 	e := s.entries[key]
 	e.FileSize = fileSize
 	e.Mtime = mtime
 	e.FileToken = fileToken
-	e.LastUploaded = timestamp
+	e.LastUploaded = t
 	s.entries[key] = e
 }
 
@@ -101,10 +102,10 @@ func (s *Store) NeedsDownload(key string, fileToken string) bool {
 }
 
 // MarkDownloaded records a successful download.
-func (s *Store) MarkDownloaded(key string, fileToken string, timestamp string) {
+func (s *Store) MarkDownloaded(key string, fileToken string, t time.Time) {
 	e := s.entries[key]
 	e.DownloadedToken = fileToken
-	e.LastDownloaded = timestamp
+	e.LastDownloaded = t
 	s.entries[key] = e
 }
 

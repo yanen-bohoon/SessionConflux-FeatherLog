@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadFrom_Empty(t *testing.T) {
@@ -37,7 +38,7 @@ func TestHasChanged_Existing(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 	s, _ := LoadFrom(path)
 
-	s.MarkUploaded("key1", 100, 2000, "ft1", "2026-01-01T00:00:00Z")
+	s.MarkUploaded("key1", 100, 2000, "ft1", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	s.Save()
 
 	// Reload and verify no change.
@@ -58,8 +59,8 @@ func TestMarkUploaded_And_Save(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 
 	s, _ := LoadFrom(path)
-	s.MarkUploaded("host/claude/sess1", 500, 6000, "file-token-1", "2026-05-01T02:00:00Z")
-	s.MarkUploaded("host/codex/sess2", 800, 9000, "file-token-2", "2026-05-01T02:00:00Z")
+	s.MarkUploaded("host/claude/sess1", 500, 6000, "file-token-1", time.Date(2026, 5, 1, 2, 0, 0, 0, time.UTC))
+	s.MarkUploaded("host/codex/sess2", 800, 9000, "file-token-2", time.Date(2026, 5, 1, 2, 0, 0, 0, time.UTC))
 
 	if err := s.Save(); err != nil {
 		t.Fatalf("save: %v", err)
@@ -82,8 +83,8 @@ func TestMarkUploaded_And_Save(t *testing.T) {
 	if e1.FileToken != "file-token-1" {
 		t.Errorf("file_token = %q", e1.FileToken)
 	}
-	if e1.LastUploaded != "2026-05-01T02:00:00Z" {
-		t.Errorf("last_uploaded = %q", e1.LastUploaded)
+	if !e1.LastUploaded.Equal(time.Date(2026, 5, 1, 2, 0, 0, 0, time.UTC)) {
+		t.Errorf("last_uploaded = %v", e1.LastUploaded)
 	}
 }
 
@@ -98,7 +99,7 @@ func TestNeedsDownload(t *testing.T) {
 		t.Error("never downloaded key should need download")
 	}
 
-	s.MarkDownloaded("k", "ft1", "2026-05-01T02:00:00Z")
+	s.MarkDownloaded("k", "ft1", time.Date(2026, 5, 1, 2, 0, 0, 0, time.UTC))
 	s.Save()
 
 	// Same token — no download needed.
@@ -117,7 +118,7 @@ func TestMarkDownloaded(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 
 	s, _ := LoadFrom(path)
-	s.MarkDownloaded("k", "ft-dl", "2026-05-02T00:00:00Z")
+	s.MarkDownloaded("k", "ft-dl", time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC))
 	s.Save()
 
 	s2, _ := LoadFrom(path)
@@ -128,8 +129,8 @@ func TestMarkDownloaded(t *testing.T) {
 	if e.DownloadedToken != "ft-dl" {
 		t.Errorf("downloaded_token = %q", e.DownloadedToken)
 	}
-	if e.LastDownloaded != "2026-05-02T00:00:00Z" {
-		t.Errorf("last_downloaded = %q", e.LastDownloaded)
+	if !e.LastDownloaded.Equal(time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("last_downloaded = %v", e.LastDownloaded)
 	}
 }
 
@@ -149,7 +150,7 @@ func TestSave_CreatesDir(t *testing.T) {
 	path := filepath.Join(dir, "sub", "state.json")
 
 	s, _ := LoadFrom(path)
-	s.MarkUploaded("k", 10, 20, "ft", "now")
+	s.MarkUploaded("k", 10, 20, "ft", time.Now())
 	if err := s.Save(); err != nil {
 		t.Fatalf("save: %v", err)
 	}

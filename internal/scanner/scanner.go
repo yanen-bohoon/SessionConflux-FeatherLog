@@ -15,12 +15,26 @@ type ScanResult struct {
 	Agent     string
 	SessionID string
 	Size      int64
+	Mtime     int64 // last modified (UnixNano), for change detection
 }
+
+// ScanOption controls Scan behavior.
+type ScanOption bool
+
+// SkipSynced causes Scan to skip _synced directories.
+const SkipSynced ScanOption = true
 
 // Scan walks all enabled agent directories and returns discovered sessions.
 // Only stats files — no file content is read.
 // exclude is a set of agent types to skip.
-func Scan(exclude map[string]bool) ([]ScanResult, error) {
+func Scan(exclude map[string]bool, opts ...ScanOption) ([]ScanResult, error) {
+	skipSynced := false
+	for _, o := range opts {
+		if o == SkipSynced {
+			skipSynced = true
+		}
+	}
+
 	var results []ScanResult
 
 	for _, def := range registry.AllAgents {
@@ -29,7 +43,7 @@ func Scan(exclude map[string]bool) ([]ScanResult, error) {
 		}
 		dirs := registry.ResolveAgentDirs(def)
 		for _, dir := range dirs {
-			found, err := discoverInDir(dir, def.Type)
+			found, err := discoverInDir(dir, def.Type, skipSynced)
 			if err != nil {
 				continue
 			}
@@ -47,7 +61,7 @@ func Scan(exclude map[string]bool) ([]ScanResult, error) {
 }
 
 // discoverInDir finds all JSONL files under a directory using stat only.
-func discoverInDir(root, agent string) ([]ScanResult, error) {
+func discoverInDir(root, agent string, skipSynced bool) ([]ScanResult, error) {
 	var results []ScanResult
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -55,6 +69,9 @@ func discoverInDir(root, agent string) ([]ScanResult, error) {
 		}
 		if info.IsDir() {
 			base := filepath.Base(path)
+			if base == "_synced" && skipSynced {
+				return filepath.SkipDir
+			}
 			if strings.HasPrefix(base, ".") && path != root {
 				return filepath.SkipDir
 			}
@@ -72,6 +89,7 @@ func discoverInDir(root, agent string) ([]ScanResult, error) {
 			Agent:     agent,
 			SessionID: sessionID,
 			Size:      info.Size(),
+			Mtime:     info.ModTime().UnixNano(),
 		})
 		return nil
 	})

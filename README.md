@@ -1,8 +1,8 @@
 # SessionConflux
 
-跨机器同步 AI 会话记录，基于[飞书云空间](https://open.feishu.cn/)传输——无需自建服务器。
+跨机器同步 AI 会话记录，支持[飞书云空间](https://open.feishu.cn/)和 SSH/SFTP 两种传输方式——无需自建服务。
 
-配合 [AgentsView](https://github.com/wesm/agentsview) 实现本地浏览。将会话 JSONL 文件上传到飞书云空间，其他机器下载后由 AgentsView 自动发现。
+配合 [AgentsView](https://github.com/wesm/agentsview) 实现本地浏览。将会话 JSONL 文件上传到飞书云空间或远程服务器，其他机器下载后由 AgentsView 自动发现。
 
 ## 安装
 
@@ -33,13 +33,13 @@ export PATH="$HOME/SessionConflux-FeatherLog:$PATH"
 ```
 
 ```sh
-# 1. 配置飞书凭证
-session-conflux config
+# 1. 配置传输方式（飞书或SSH）
+session-conflux setup
 
 # 2. 查看本地会话
 session-conflux list
 
-# 3. 上传到飞书云空间
+# 3. 上传
 session-conflux upload
 
 # 4. 在另一台机器上下载全部会话
@@ -59,11 +59,11 @@ agentsview serve
 
 | 命令 | 说明 |
 |---------|-------------|
-| `config` | 交互式配置飞书凭证 |
+| `setup` | 交互式配置传输后端（飞书或SSH） |
 | `list` | 列出所有本地 AI 会话 |
 | `status` | 查看同步状态摘要 |
-| `upload` | 上传有变动的会话到飞书云空间 |
-| `download` | 从飞书云空间下载会话（`--all` / `--session <key>`） |
+| `upload` | 上传有变动的会话 |
+| `download` | 下载会话（`--all` / `--session <key>`） |
 | `sync` | 守护进程模式，每天定时自动同步 |
 | `version` | 显示版本号 |
 
@@ -88,9 +88,9 @@ Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp
 ### 文件夹结构
 
 ```
-飞书云空间:
-  SessionConflux/                  # L1
-    ├─ mac-studio/                 # L2 (机器名)
+远程存储（飞书云空间 或 SSH 服务器）:
+  SessionConflux/                  # 根目录
+    ├─ mac-studio/                 # 机器名
     │  ├─ baseline/                # 基线压缩包
     │  │  └─ bundle.tar.zst.partNN
     │  └─ incremental/             # 增量文件
@@ -104,9 +104,20 @@ Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp
 `~/.session-conflux/config.toml`:
 
 ```toml
-[feishu]
+[transport]
+backend = "feishu"           # "feishu" 或 "ssh"
+
+[transport.feishu]
 app_id = "cli_xxx"
 app_secret = "xxx"
+folder_token = ""            # 可选，留空自动创建
+
+[transport.ssh]
+host = "192.168.1.100"
+port = 22
+user = "your_username"
+key_file = "~/.ssh/id_ed25519"
+remote_path = "/data/session-conflux"
 
 [sync]
 schedule = "02:00"
@@ -118,6 +129,8 @@ exclude = ["warp"]
 [compression]
 level = 3
 ```
+
+旧版 `[feishu]` 配置块会在首次加载时自动迁移到 `[transport]` 格式。
 
 ## 致谢
 

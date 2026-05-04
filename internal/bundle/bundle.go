@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -72,19 +70,4 @@ func Unpack(data []byte) (map[string][]byte, error) {
 		files[hdr.Name] = content
 	}
 	return files, nil
-}
-
-// WriteToAgentDir writes session data to the appropriate agent directory
-// so that AgentsView's fsnotify discovers it. The hostname is embedded in
-// the path so AgentsView can extract the source machine.
-func WriteToAgentDir(hostname, agent, sessionID string, data []byte, agentDir string) error {
-	targetDir := filepath.Join(agentDir, "_synced", hostname)
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	targetFile := filepath.Join(targetDir, sessionID+".jsonl")
-	if err := os.WriteFile(targetFile, data, 0644); err != nil {
-		return fmt.Errorf("write: %w", err)
-	}
-	return nil
 }

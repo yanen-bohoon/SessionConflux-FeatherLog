@@ -18,7 +18,7 @@ func TestDiscoverInDir(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	results, err := discoverInDir(dir, "claude")
+	results, err := discoverInDir(dir, "claude", false)
 	if err != nil {
 		t.Fatalf("discoverInDir: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestDiscoverInDir_IgnoresNonJSONL(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hello"), 0644)
 	os.WriteFile(filepath.Join(dir, "data.json"), []byte("{}"), 0644)
 
-	results, err := discoverInDir(dir, "test-agent")
+	results, err := discoverInDir(dir, "test-agent", false)
 	if err != nil {
 		t.Fatalf("discoverInDir: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestDiscoverInDir_SkipsHiddenDirs(t *testing.T) {
 	os.MkdirAll(normalDir, 0755)
 	os.WriteFile(filepath.Join(normalDir, "visible.jsonl"), []byte(`{}`+"\n"), 0644)
 
-	results, err := discoverInDir(dir, "test-agent")
+	results, err := discoverInDir(dir, "test-agent", false)
 	if err != nil {
 		t.Fatalf("discoverInDir: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestDiscoverInDir_MultipleSessions(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, sid+".jsonl"), []byte(`{}`+"\n"), 0644)
 	}
 
-	results, err := discoverInDir(dir, "claude")
+	results, err := discoverInDir(dir, "claude", false)
 	if err != nil {
 		t.Fatalf("discoverInDir: %v", err)
 	}

@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/yanen-bohoon/session-conflux/internal/config"
-	"github.com/yanen-bohoon/session-conflux/internal/feishu"
 	"github.com/yanen-bohoon/session-conflux/internal/scanner"
 	"github.com/yanen-bohoon/session-conflux/internal/scheduler"
 	"github.com/yanen-bohoon/session-conflux/internal/state"
 	"github.com/yanen-bohoon/session-conflux/internal/sync"
+	"github.com/yanen-bohoon/session-conflux/internal/transport"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -21,7 +22,7 @@ var version = "dev"
 
 var rootCmd = &cobra.Command{
 	Use:   "session-conflux",
-	Short: "Sync AI agent sessions across machines via Feishu Drive",
+	Short: "Sync AI agent sessions across machines via Feishu Drive or SSH",
 }
 
 var versionCmd = &cobra.Command{
@@ -41,7 +42,7 @@ var statusCmd = &cobra.Command{
 var configCmd = &cobra.Command{
 	Use:     "setup",
 	Aliases: []string{"config"},
-	Short:   "Guided setup wizard for Feishu credentials",
+	Short:   "Guided setup wizard",
 	Run:     runSetup,
 }
 
@@ -53,13 +54,13 @@ var syncCmd = &cobra.Command{
 
 var uploadCmd = &cobra.Command{
 	Use:   "upload",
-	Short: "Upload changed sessions to Feishu Drive",
+	Short: "Upload changed sessions",
 	Run:   runUpload,
 }
 
 var downloadCmd = &cobra.Command{
 	Use:   "download",
-	Short: "Download sessions from Feishu Drive",
+	Short: "Download sessions",
 	Run:   runDownload,
 }
 
@@ -92,14 +93,50 @@ func runSync(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if cfg.Feishu.AppID == "" || cfg.Feishu.AppSecret == "" {
-		fmt.Fprintln(os.Stderr, "Feishu not configured. Run 'session-conflux config' first.")
+	if cfg.Transport.Backend == "" {
+		fmt.Fprintln(os.Stderr, "No transport configured. Run 'session-conflux setup' first.")
 		os.Exit(1)
 	}
 
-	// Run scheduler
 	if err := scheduler.Daily(cfg.Sync.Schedule, func() error {
-		return sync.RunFullSync(cfg)
+		t, err := transport.New(cfg)
+		if err != nil {
+			return fmt.Errorf("transport: %w", err)
+		}
+
+		st, err := state.Load()
+		if err != nil {
+			return fmt.Errorf("load state: %w", err)
+		}
+
+		dir := cfg.Sync.Direction
+		if dir == "" {
+			dir = "both"
+		}
+		doUpload := dir == "upload" || dir == "both"
+		doDownload := dir == "download" || dir == "both"
+
+		if doUpload {
+			fmt.Println("--- Upload ---")
+			stats, err := sync.UploadChanged(t, cfg, st)
+			if err != nil {
+				return fmt.Errorf("upload: %w", err)
+			}
+			fmt.Printf("Upload: %d total, %d synced, %d skipped, %d failed.\n",
+				stats.Total, stats.Synced, stats.Skipped, stats.Failed)
+		}
+		if doDownload {
+			if doUpload {
+				fmt.Println()
+			}
+			fmt.Println("--- Download ---")
+			n, err := sync.DownloadAllSessions(t)
+			if err != nil {
+				return fmt.Errorf("download: %w", err)
+			}
+			fmt.Printf("Download: %d sessions downloaded.\n", n)
+		}
+		return nil
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Scheduler error: %v\n", err)
 		os.Exit(1)
@@ -119,16 +156,16 @@ func runStatus(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	var lastUpload, lastDownload string
+	var lastUpload, lastDownload time.Time
 	uploadCount, downloadCount := 0, 0
 	for _, e := range entries {
-		if e.LastUploaded > lastUpload {
+		if e.LastUploaded.After(lastUpload) {
 			lastUpload = e.LastUploaded
 		}
 		if e.FileToken != "" {
 			uploadCount++
 		}
-		if e.LastDownloaded > lastDownload {
+		if e.LastDownloaded.After(lastDownload) {
 			lastDownload = e.LastDownloaded
 		}
 		if e.DownloadedToken != "" {
@@ -140,12 +177,12 @@ func runStatus(cmd *cobra.Command, args []string) {
 	fmt.Println("===========")
 	fmt.Printf("Sessions tracked: %d\n", len(entries))
 	fmt.Printf("Sessions uploaded: %d\n", uploadCount)
-	if lastUpload != "" {
-		fmt.Printf("Last upload: %s\n", lastUpload)
+	if !lastUpload.IsZero() {
+		fmt.Printf("Last upload: %s\n", lastUpload.Format(time.RFC3339))
 	}
 	fmt.Printf("Sessions downloaded: %d\n", downloadCount)
-	if lastDownload != "" {
-		fmt.Printf("Last download: %s\n", lastDownload)
+	if !lastDownload.IsZero() {
+		fmt.Printf("Last download: %s\n", lastDownload.Format(time.RFC3339))
 	}
 }
 
@@ -162,73 +199,28 @@ func runSetup(cmd *cobra.Command, args []string) {
 	fmt.Println("====================")
 	fmt.Println()
 
-	// Step 1: App ID (required, loop until non-empty)
-	for cfg.Feishu.AppID == "" {
-		fmt.Print("1. Feishu App ID: ")
+	// Step 1: Choose backend.
+	for cfg.Transport.Backend == "" {
+		fmt.Print("1. Backend (feishu / ssh): ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
-		if input == "" {
-			fmt.Println("   App ID is required. Find it at Feishu Open Platform → App Settings.")
-			continue
+		switch input {
+		case "feishu", "ssh":
+			cfg.Transport.Backend = input
+		default:
+			fmt.Println("   Please enter 'feishu' or 'ssh'.")
 		}
-		cfg.Feishu.AppID = input
 	}
 
-	// Step 2: App Secret (required, min 8 chars)
-	for cfg.Feishu.AppSecret == "" {
-		fmt.Print("2. Feishu App Secret: ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "" {
-			fmt.Println("   App Secret is required.")
-			continue
-		}
-		if len(input) < 8 {
-			fmt.Println("   App Secret appears too short (< 8 chars). Please re-enter.")
-			continue
-		}
-		cfg.Feishu.AppSecret = input
+	if cfg.Transport.Backend == "feishu" {
+		setupFeishu(cfg, reader)
+	} else {
+		setupSSH(cfg, reader)
 	}
 
-	// Step 3: Verify credentials (loop until success)
+	// Sync schedule (common).
 	fmt.Println()
-	for {
-		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-		fmt.Print("3. Verifying credentials... ")
-		_, err := client.GetTenantToken()
-		if err != nil {
-			fmt.Printf("FAILED: %v\n", err)
-			fmt.Print("   Re-enter App ID? (Enter to keep, or type new value): ")
-			input, _ := reader.ReadString('\n')
-			input = strings.TrimSpace(input)
-			if input != "" {
-				cfg.Feishu.AppID = input
-			}
-			fmt.Print("   Re-enter App Secret? (Enter to keep, or type new value): ")
-			input, _ = reader.ReadString('\n')
-			input = strings.TrimSpace(input)
-			if input != "" {
-				cfg.Feishu.AppSecret = input
-			}
-			continue
-		}
-		fmt.Println("OK")
-
-		// Step 4: Find or create root folder
-		fmt.Print("4. Setting up SessionConflux folder... ")
-		folderToken, err := client.FindOrCreateFolder("SessionConflux")
-		if err != nil {
-			fmt.Printf("FAILED: %v\n", err)
-		} else {
-			cfg.Feishu.FolderToken = folderToken
-			fmt.Println("OK")
-		}
-		break
-	}
-
-	// Step 5: Sync schedule (optional)
-	fmt.Println()
-	fmt.Printf("5. Sync schedule (HH:MM, 24h format) [%s]: ", cfg.Sync.Schedule)
+	fmt.Printf("Sync schedule (HH:MM, 24h format) [%s]: ", cfg.Sync.Schedule)
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
@@ -242,6 +234,170 @@ func runSetup(cmd *cobra.Command, args []string) {
 	fmt.Println()
 	fmt.Println("Configuration saved to ~/.session-conflux/config.toml")
 	fmt.Println("Run 'session-conflux upload' to start syncing.")
+}
+
+func setupFeishu(cfg *config.Config, reader *bufio.Reader) {
+	// App ID.
+	for cfg.Transport.Feishu.AppID == "" {
+		fmt.Print("2. Feishu App ID: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   App ID is required. Find it at Feishu Open Platform → App Settings.")
+			continue
+		}
+		cfg.Transport.Feishu.AppID = input
+	}
+
+	// App Secret.
+	for cfg.Transport.Feishu.AppSecret == "" {
+		fmt.Print("3. Feishu App Secret: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   App Secret is required.")
+			continue
+		}
+		if len(input) < 8 {
+			fmt.Println("   App Secret appears too short (< 8 chars). Please re-enter.")
+			continue
+		}
+		cfg.Transport.Feishu.AppSecret = input
+	}
+
+	// Verify credentials + create root folder.
+	fmt.Println()
+	for {
+		ft := transport.NewFeishuTransport(cfg.Transport.Feishu.AppID, cfg.Transport.Feishu.AppSecret, cfg.Transport.Feishu.FolderToken)
+		fmt.Print("4. Verifying credentials... ")
+		err := ft.Verify()
+		if err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+			fmt.Print("   Re-enter App ID? (Enter to keep, or type new value): ")
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Transport.Feishu.AppID = input
+			}
+			fmt.Print("   Re-enter App Secret? (Enter to keep, or type new value): ")
+			input, _ = reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Transport.Feishu.AppSecret = input
+			}
+			continue
+		}
+		fmt.Println("OK")
+
+		fmt.Print("5. Setting up SessionConflux folder... ")
+		err = ft.CreateFolder("")
+		if err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+		} else {
+			cfg.Transport.Feishu.FolderToken = ft.RootToken()
+			fmt.Println("OK")
+		}
+		break
+	}
+}
+
+func setupSSH(cfg *config.Config, reader *bufio.Reader) {
+	// Host.
+	for cfg.Transport.SSH.Host == "" {
+		fmt.Print("2. SSH host: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   Host is required.")
+			continue
+		}
+		cfg.Transport.SSH.Host = input
+	}
+
+	// Port (default 22).
+	if cfg.Transport.SSH.Port == 0 {
+		cfg.Transport.SSH.Port = 22
+	}
+	fmt.Printf("3. SSH port [%d]: ", cfg.Transport.SSH.Port)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" {
+		fmt.Sscanf(input, "%d", &cfg.Transport.SSH.Port)
+	}
+
+	// User.
+	for cfg.Transport.SSH.User == "" {
+		fmt.Print("4. SSH user: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   User is required.")
+			continue
+		}
+		cfg.Transport.SSH.User = input
+	}
+
+	// Key file (default ~/.ssh/id_ed25519).
+	if cfg.Transport.SSH.KeyFile == "" {
+		cfg.Transport.SSH.KeyFile = "~/.ssh/id_ed25519"
+	}
+	fmt.Printf("5. SSH private key file [%s]: ", cfg.Transport.SSH.KeyFile)
+	input, _ = reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" {
+		cfg.Transport.SSH.KeyFile = input
+	}
+
+	// Remote path.
+	for cfg.Transport.SSH.RemotePath == "" {
+		fmt.Print("6. Remote path (e.g. /data/session-conflux): ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("   Remote path is required.")
+			continue
+		}
+		cfg.Transport.SSH.RemotePath = input
+	}
+
+	// Verify connection.
+	fmt.Println()
+	for {
+		fmt.Print("7. Verifying SSH connection... ")
+		t, err := transport.NewSSHTransport(cfg.Transport.SSH)
+		if err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+			fmt.Print("   Re-enter host? (Enter to keep, or type new value): ")
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Transport.SSH.Host = input
+			}
+			fmt.Print("   Re-enter port? (Enter to keep, or type new value): ")
+			input, _ = reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				fmt.Sscanf(input, "%d", &cfg.Transport.SSH.Port)
+			}
+			fmt.Print("   Re-enter user? (Enter to keep, or type new value): ")
+			input, _ = reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Transport.SSH.User = input
+			}
+			fmt.Print("   Re-enter key file? (Enter to keep, or type new value): ")
+			input, _ = reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+			if input != "" {
+				cfg.Transport.SSH.KeyFile = input
+			}
+
+			continue
+		}
+		t.Close()
+		fmt.Println("OK")
+		break
+	}
 }
 
 func runList(cmd *cobra.Command, args []string) {
@@ -267,7 +423,6 @@ func runList(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Print table
 	fmt.Printf("%-12s %-20s %8s\n", "AGENT", "SESSION ID", "SIZE")
 	fmt.Println(strings.Repeat("-", 50))
 	for _, r := range results {
@@ -284,8 +439,8 @@ func runUpload(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if cfg.Feishu.AppID == "" || cfg.Feishu.AppSecret == "" {
-		fmt.Fprintln(os.Stderr, "Feishu not configured. Run 'session-conflux config' first.")
+	if cfg.Transport.Backend == "" {
+		fmt.Fprintln(os.Stderr, "No transport configured. Run 'session-conflux setup' first.")
 		os.Exit(1)
 	}
 
@@ -295,9 +450,14 @@ func runUpload(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	t, err := transport.New(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Transport init failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("Scanning for changed sessions...")
-	client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	stats, err := sync.UploadChanged(client, cfg, st)
+	stats, err := sync.UploadChanged(t, cfg, st)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Upload failed: %v\n", err)
 		os.Exit(1)
@@ -314,16 +474,21 @@ func runDownload(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if cfg.Feishu.AppID == "" || cfg.Feishu.AppSecret == "" {
-		fmt.Fprintln(os.Stderr, "Feishu not configured. Run 'session-conflux config' first.")
+	if cfg.Transport.Backend == "" {
+		fmt.Fprintln(os.Stderr, "No transport configured. Run 'session-conflux setup' first.")
+		os.Exit(1)
+	}
+
+	t, err := transport.New(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Transport init failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	// --all flag
 	if downloadAll {
 		fmt.Println("Downloading all remote sessions...")
-		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-		n, err := sync.DownloadAllSessions(client, cfg)
+		n, err := sync.DownloadAllSessions(t)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 			os.Exit(1)
@@ -334,15 +499,14 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 	// --session flag
 	if downloadSession != "" {
-		client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-		sessions, err := sync.ListRemoteSessions(client, cfg)
+		sessions, err := sync.ListRemoteSessions(t)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to list remote sessions: %v\n", err)
 			os.Exit(1)
 		}
 		for _, s := range sessions {
 			if s.Key == downloadSession {
-				if err := sync.DownloadSession(client, s); err != nil {
+				if err := sync.DownloadSession(t, s); err != nil {
 					fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 					os.Exit(1)
 				}
@@ -356,8 +520,7 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 	// Interactive mode (default): list remote sessions
 	fmt.Println("Fetching remote sessions...")
-	client := feishu.NewClient(cfg.Feishu.AppID, cfg.Feishu.AppSecret)
-	sessions, err := sync.ListRemoteSessions(client, cfg)
+	sessions, err := sync.ListRemoteSessions(t)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to list remote sessions: %v\n", err)
 		os.Exit(1)

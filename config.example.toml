@@ -1,9 +1,22 @@
-[feishu]
+[transport]
+# Storage backend: "feishu" (Feishu Drive) or "ssh" (remote server via SFTP).
+backend = "feishu"
+
+# --- Feishu backend (used when backend = "feishu") ---
+[transport.feishu]
 # Feishu app credentials. Create an app at https://open.feishu.cn/
 app_id = ""
 app_secret = ""
 # Folder token (optional). Leave empty to auto-create "SessionConflux" folder.
 folder_token = ""
+
+# --- SSH backend (used when backend = "ssh") ---
+[transport.ssh]
+host = "192.168.1.100"
+port = 22
+user = "your_username"
+key_file = "~/.ssh/id_ed25519"
+remote_path = "/data/session-conflux"
 
 [sync]
 # Daily sync time in HH:MM format (24-hour).

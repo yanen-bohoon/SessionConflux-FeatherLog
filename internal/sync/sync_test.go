@@ -4,18 +4,21 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/yanen-bohoon/session-conflux/internal/config"
 	"github.com/yanen-bohoon/session-conflux/internal/feishu"
+	"github.com/yanen-bohoon/session-conflux/internal/transport"
 )
 
-func newTestClient(srv *httptest.Server) *feishu.Client {
+// newTestTransport creates a FeishuTransport pointed at a test server.
+func newTestTransport(srv *httptest.Server, rootToken string) transport.Transport {
 	c := feishu.NewClient("app", "secret")
 	c.SetBaseURL(srv.URL)
 	c.SetHTTPClient(srv.Client())
-	return c
+	return transport.NewFeishuTransportWithClient(c, rootToken)
 }
 
 func TestListRemoteSessions_Empty(t *testing.T) {
@@ -38,10 +41,8 @@ func TestListRemoteSessions_Empty(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := newTestClient(srv)
-	cfg := &config.Config{Feishu: config.FeishuConfig{FolderToken: "l1-token"}}
-
-	sessions, err := ListRemoteSessions(client, cfg)
+	tr := newTestTransport(srv, "l1-token")
+	sessions, err := ListRemoteSessions(tr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -116,10 +117,8 @@ func TestListRemoteSessions_WithSessions(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := newTestClient(srv)
-	cfg := &config.Config{Feishu: config.FeishuConfig{FolderToken: "l1-token"}}
-
-	sessions, err := ListRemoteSessions(client, cfg)
+	tr := newTestTransport(srv, "l1-token")
+	sessions, err := ListRemoteSessions(tr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,61 +133,6 @@ func TestListRemoteSessions_WithSessions(t *testing.T) {
 	}
 	if sessions[0].Computer != "mac-studio" {
 		t.Errorf("computer = %q, want %q", sessions[0].Computer, "mac-studio")
-	}
-}
-
-func TestListRemoteSessions_AutoFolder(t *testing.T) {
-	// When FolderToken is empty, it should auto-create the root folder.
-	var createCalled bool
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/auth/") {
-			json.NewEncoder(w).Encode(map[string]any{
-				"code":                0,
-				"tenant_access_token": "t",
-				"expire":              7200,
-			})
-			return
-		}
-		if strings.Contains(r.URL.Path, "create_folder") {
-			createCalled = true
-			json.NewEncoder(w).Encode(map[string]any{
-				"code": 0,
-				"data": map[string]any{"token": "auto-folder-token"},
-			})
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]any{
-			"code": 0,
-			"data": map[string]any{
-				"files":    []map[string]any{},
-				"has_more": false,
-			},
-		})
-	}))
-	defer srv.Close()
-
-	client := newTestClient(srv)
-	cfg := &config.Config{} // empty FolderToken
-
-	_, err := ListRemoteSessions(client, cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !createCalled {
-		t.Error("should have called CreateFolder for missing root token")
-	}
-}
-
-func TestFindFileInList(t *testing.T) {
-	files := []feishu.FileInfo{
-		{Token: "t1", Name: "a.jsonl.zst"},
-		{Token: "t2", Name: "b.jsonl.zst"},
-	}
-	if got := findFileInList(files, "a.jsonl.zst"); got != "t1" {
-		t.Errorf("got %q, want t1", got)
-	}
-	if got := findFileInList(files, "c.jsonl.zst"); got != "" {
-		t.Errorf("got %q, want empty", got)
 	}
 }
 
@@ -237,14 +181,35 @@ func TestFormatBytes(t *testing.T) {
 	}
 }
 
-func TestFormatBytesOrUnknown(t *testing.T) {
-	if got := formatBytesOrUnknown(0); got != "?? B" {
-		t.Errorf("formatBytesOrUnknown(0) = %q, want %q", got, "?? B")
+func TestWriteToAgentDir(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "claude", "projects")
+
+	err := writeToAgentDir("mac-studio", "claude", "sess-123", []byte(`{"test":true}`+"\n"), agentDir)
+	if err != nil {
+		t.Fatalf("writeToAgentDir: %v", err)
 	}
-	if got := formatBytesOrUnknown(-1); got != "?? B" {
-		t.Errorf("formatBytesOrUnknown(-1) = %q, want %q", got, "?? B")
+
+	expectedPath := filepath.Join(agentDir, "_synced", "mac-studio", "sess-123.jsonl")
+	data, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
 	}
-	if got := formatBytesOrUnknown(500); got != "500 B" {
-		t.Errorf("formatBytesOrUnknown(500) = %q, want %q", got, "?? B")
+	if string(data) != `{"test":true}`+"\n" {
+		t.Errorf("content = %q", string(data))
+	}
+}
+
+func TestWriteToAgentDir_MultipleHosts(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "codex", "sessions")
+
+	writeToAgentDir("host-a", "codex", "s1", []byte("a"), agentDir)
+	writeToAgentDir("host-b", "codex", "s1", []byte("b"), agentDir)
+
+	a, _ := os.ReadFile(filepath.Join(agentDir, "_synced", "host-a", "s1.jsonl"))
+	b, _ := os.ReadFile(filepath.Join(agentDir, "_synced", "host-b", "s1.jsonl"))
+	if string(a) != "a" || string(b) != "b" {
+		t.Error("host isolation failed")
 	}
 }

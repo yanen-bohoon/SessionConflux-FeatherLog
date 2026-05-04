@@ -1,8 +1,6 @@
 package bundle
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -102,39 +100,5 @@ func TestUnpack_Corrupted(t *testing.T) {
 	_, err := Unpack([]byte("not a tar.zst archive"))
 	if err == nil {
 		t.Error("expected error for corrupted archive")
-	}
-}
-
-func TestWriteToAgentDir(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "claude", "projects")
-
-	err := WriteToAgentDir("mac-studio", "claude", "sess-123", []byte(`{"test":true}`+"\n"), agentDir)
-	if err != nil {
-		t.Fatalf("WriteToAgentDir: %v", err)
-	}
-
-	expectedPath := filepath.Join(agentDir, "_synced", "mac-studio", "sess-123.jsonl")
-	data, err := os.ReadFile(expectedPath)
-	if err != nil {
-		t.Fatalf("read written file: %v", err)
-	}
-	if string(data) != `{"test":true}`+"\n" {
-		t.Errorf("content = %q", string(data))
-	}
-}
-
-func TestWriteToAgentDir_MultipleHosts(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "codex", "sessions")
-
-	WriteToAgentDir("host-a", "codex", "s1", []byte("a"), agentDir)
-	WriteToAgentDir("host-b", "codex", "s1", []byte("b"), agentDir)
-
-	// Both hosts should have their own copy.
-	a, _ := os.ReadFile(filepath.Join(agentDir, "_synced", "host-a", "s1.jsonl"))
-	b, _ := os.ReadFile(filepath.Join(agentDir, "_synced", "host-b", "s1.jsonl"))
-	if string(a) != "a" || string(b) != "b" {
-		t.Error("host isolation failed")
 	}
 }
