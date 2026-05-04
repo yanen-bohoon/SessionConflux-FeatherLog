@@ -238,16 +238,35 @@
 </SettingsSection>
 
 <style>
+  /* Every config row uses a fixed label column so inputs align vertically.
+     The label column is 90px; the input/select/checkbox fills remaining space. */
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .field-label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  /* Toggle row shares the same label-input rhythm as field rows. */
   .toggle-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-bottom: 4px;
+    gap: 8px;
   }
   .toggle-label {
+    width: 90px;
+    flex-shrink: 0;
     font-size: 12px;
     font-weight: 500;
     color: var(--text-secondary);
+    text-align: right;
   }
   .toggle-row input[type="checkbox"] {
     width: 16px;
@@ -255,18 +274,6 @@
     accent-color: var(--accent-blue);
   }
 
-  .field-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .field-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-muted);
-    min-width: 80px;
-    text-align: right;
-  }
   .setting-input {
     flex: 1;
     height: 28px;
@@ -282,8 +289,8 @@
     border-color: var(--accent-blue);
   }
   .short-input {
+    flex: 1;
     max-width: 100px;
-    flex: none;
   }
   .setting-select {
     flex: 1;
@@ -295,6 +302,9 @@
     background: var(--bg-inset);
     border: 1px solid var(--border-muted);
   }
+
+  /* Sub-fields are visually nested. Their labels are narrower to
+     keep the total label+edge width aligned with the parent labels. */
   .sub-fields {
     display: flex;
     flex-direction: column;
@@ -303,11 +313,15 @@
     border-left: 2px solid var(--border-muted);
     margin-left: 12px;
   }
+  .sub-fields .field-label {
+    width: 60px;
+  }
 
   .actions-row {
     display: flex;
     gap: 8px;
     padding-top: 4px;
+    padding-left: 98px;
   }
   .save-btn {
     height: 28px;
@@ -349,6 +363,7 @@
   .msg {
     font-size: 11px;
     margin: 0;
+    padding-left: 98px;
   }
   .msg.error {
     color: var(--accent-red, #ef4444);
