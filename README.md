@@ -55,6 +55,7 @@ make install
 export PATH="$HOME/SessionConflux-FeatherLog:$PATH"
 
 # 2. 配置传输方式（飞书或SSH）及 agentsview 端口
+# 重跑 setup 即可修改配置，每项按回车保留原值
 session-conflux setup
 
 # 3. 查看本地会话
