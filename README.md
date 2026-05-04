@@ -2,7 +2,7 @@
 
 跨机器同步 AI 会话记录，支持[飞书云空间](https://open.feishu.cn/)和 SSH/SFTP 两种传输方式——无需自建服务。
 
-配合 [AgentsView](https://github.com/wesm/agentsview) 实现本地浏览。将会话 JSONL 文件上传到飞书云空间或远程服务器，其他机器下载后由 AgentsView 自动发现。
+内置 [AgentsView](https://github.com/wesm/agentsview) 浏览端，支持 Web 界面和 macOS 桌面应用。云同步功能已深度集成，在 GUI 中一键上传/下载会话，配置定时自动同步。
 
 ## 安装
 
@@ -47,6 +47,18 @@ make install
 ```
 
 `session-conflux` 和 `agentsview` 安装到 `~/SessionConflux-FeatherLog/`。
+
+### 3. （可选）macOS 桌面应用
+
+下载 `AgentsView.app`（35 MB），双击运行，菜单栏出现图标。无需安装 Go 或 Node.js。
+
+```bash
+# 构建 .app（需 Rust 工具链）
+make desktop-macos-app
+# .app 输出到 dist/desktop/macos/AgentsView.app
+```
+
+桌面应用内置云同步界面：菜单栏图标 → 设置 → 云同步，配置飞书或 SSH 后一键上传/下载。
 
 ## 快速开始
 
@@ -96,6 +108,8 @@ agentsview serve
 |------|------|
 | `agentsview serve` | 启动本地 Web 浏览端，默认 `127.0.0.1:8080` |
 
+Web 端顶栏"云同步"按钮提供可视化上传/下载/状态查看，设置页可配置全部同步参数。桌面端右键菜单栏图标同样可用。
+
 ## 支持的 Agent
 
 Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp、Zencoder、iFlow、VS Code Copilot、Pi、OpenClaw、Kimi、Claude.ai、ChatGPT、Kiro、Kiro IDE、Cortex、Hermes、Warp、Positron。
@@ -124,36 +138,34 @@ Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp
 
 ## 配置
 
-`~/.session-conflux/config.toml`:
+配置统一存储在 `~/.agentsview/config.toml`：
 
 ```toml
-[transport]
+[sync]
+enabled = true
+schedule = "02:00"
+direction = "both"
+compression_level = 3
+
+[sync.transport]
 backend = "feishu"           # "feishu" 或 "ssh"
 
-[transport.feishu]
+[sync.transport.feishu]
 app_id = "cli_xxx"
 app_secret = "xxx"
 folder_token = ""            # 可选，留空自动创建
 
-[transport.ssh]
+[sync.transport.ssh]
 host = "192.168.1.100"
 port = 22
 user = "your_username"
 key_file = "~/.ssh/id_ed25519"
 remote_path = "/data/session-conflux"
-
-[sync]
-schedule = "02:00"
-direction = "both"
-
-[agents]
-exclude = ["warp"]
-
-[compression]
-level = 3
 ```
 
-旧版 `[feishu]` 配置块会在首次加载时自动迁移到 `[transport]` 格式。
+运行 `session-conflux setup` 交互式配置，或通过 agentsview Web 设置页（http://127.0.0.1:8080 → 设置 → 云同步）可视化配置。
+
+旧版 `~/.session-conflux/config.toml` 和 `[feishu]` 配置块会在首次启动时自动迁移到 `~/.agentsview/config.toml` 的 `[sync]` 块，原文件加 `.bak` 后缀保留。
 
 ## 致谢
 
