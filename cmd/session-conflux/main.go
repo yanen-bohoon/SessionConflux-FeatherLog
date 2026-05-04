@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,6 +229,25 @@ func runSetup(cmd *cobra.Command, args []string) {
 		cfg.Sync.Schedule = input
 	}
 
+	// agentsview port.
+	fmt.Println()
+	fmt.Printf("AgentsView web port [8080]: ")
+	input, _ = reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	port := 8080
+	if input != "" {
+		if p, err := strconv.Atoi(input); err != nil || p < 1 || p > 65535 {
+			fmt.Printf("   Invalid port, using default 8080.\n")
+		} else {
+			port = p
+		}
+	}
+	if err := writeAgentsviewConfig(port); err != nil {
+		fmt.Printf("   WARN: could not write agentsview config: %v\n", err)
+	} else {
+		fmt.Printf("AgentsView port %d saved to ~/.agentsview/config.toml\n", port)
+	}
+
 	if err := config.Save(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
 		os.Exit(1)
@@ -234,6 +255,7 @@ func runSetup(cmd *cobra.Command, args []string) {
 	fmt.Println()
 	fmt.Println("Configuration saved to ~/.session-conflux/config.toml")
 	fmt.Println("Run 'session-conflux upload' to start syncing.")
+	fmt.Println("Run 'agentsview serve' to start the web viewer.")
 }
 
 func setupFeishu(cfg *config.Config, reader *bufio.Reader) {
@@ -398,6 +420,19 @@ func setupSSH(cfg *config.Config, reader *bufio.Reader) {
 		fmt.Println("OK")
 		break
 	}
+}
+
+func writeAgentsviewConfig(port int) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".agentsview")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	content := fmt.Sprintf("port = %d\n", port)
+	return os.WriteFile(filepath.Join(dir, "config.toml"), []byte(content), 0644)
 }
 
 func runList(cmd *cobra.Command, args []string) {

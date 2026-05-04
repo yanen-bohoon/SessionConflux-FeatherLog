@@ -54,7 +54,7 @@ make install
 # 1. 将安装目录加入 PATH
 export PATH="$HOME/SessionConflux-FeatherLog:$PATH"
 
-# 2. 配置传输方式（飞书或SSH）
+# 2. 配置传输方式（飞书或SSH）及 agentsview 端口
 session-conflux setup
 
 # 3. 查看本地会话
@@ -69,7 +69,7 @@ session-conflux download --all
 # 6. 启动守护进程，每天自动同步（可选）
 session-conflux sync
 
-# 7. 启动本地浏览端（可选）
+# 7. 启动本地浏览端（端口在 setup 时已配置，默认 8080）
 agentsview serve
 # 浏览器打开 http://127.0.0.1:8080
 # agentsview 自动监听 agent 目录，新会话实时入库，无需手动刷新
