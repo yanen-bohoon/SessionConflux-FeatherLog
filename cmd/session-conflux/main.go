@@ -11,12 +11,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yanen-bohoon/session-conflux/internal/config"
-	"github.com/yanen-bohoon/session-conflux/internal/scanner"
-	"github.com/yanen-bohoon/session-conflux/internal/scheduler"
-	"github.com/yanen-bohoon/session-conflux/internal/state"
-	"github.com/yanen-bohoon/session-conflux/internal/sync"
-	"github.com/yanen-bohoon/session-conflux/internal/transport"
+	"github.com/yanen-bohoon/session-conflux/pkg/config"
+	"github.com/yanen-bohoon/session-conflux/pkg/scanner"
+	"github.com/yanen-bohoon/session-conflux/pkg/scheduler"
+	"github.com/yanen-bohoon/session-conflux/pkg/state"
+	"github.com/yanen-bohoon/session-conflux/pkg/sync"
+	"github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".

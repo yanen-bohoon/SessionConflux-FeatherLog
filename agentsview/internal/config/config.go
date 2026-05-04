@@ -22,6 +22,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/pflag"
+	scconfig "github.com/yanen-bohoon/session-conflux/pkg/config"
 	"github.com/wesm/agentsview/internal/parser"
 )
 
@@ -80,6 +81,39 @@ type CustomModelRate struct {
 	CacheRead     float64 `json:"cache_read,omitempty" toml:"cache_read"`
 }
 
+// SyncFeishuConfig holds Feishu Drive credentials for cloud sync.
+type SyncFeishuConfig struct {
+	AppID       string `toml:"app_id" json:"app_id"`
+	AppSecret   string `toml:"app_secret" json:"app_secret"`
+	FolderToken string `toml:"folder_token,omitempty" json:"folder_token"`
+}
+
+// SyncSSHConfig holds SSH/SFTP connection details for cloud sync.
+type SyncSSHConfig struct {
+	Host       string `toml:"host" json:"host"`
+	Port       int    `toml:"port" json:"port"`
+	User       string `toml:"user" json:"user"`
+	KeyFile    string `toml:"key_file" json:"key_file"`
+	RemotePath string `toml:"remote_path" json:"remote_path"`
+}
+
+// SyncTransportConfig selects the cloud sync backend.
+type SyncTransportConfig struct {
+	Backend string           `toml:"backend" json:"backend"` // "feishu" or "ssh"
+	Feishu  SyncFeishuConfig `toml:"feishu" json:"feishu,omitempty"`
+	SSH     SyncSSHConfig    `toml:"ssh" json:"ssh,omitempty"`
+}
+
+// SyncConfig controls cross-machine session sync (SessionConflux).
+type SyncConfig struct {
+	Enabled          bool                `toml:"enabled" json:"enabled"`
+	Schedule         string              `toml:"schedule" json:"schedule"`
+	Direction        string              `toml:"direction" json:"direction"` // "both" | "upload" | "download"
+	Transport        SyncTransportConfig `toml:"transport" json:"transport"`
+	ExcludeAgents    []string            `toml:"exclude_agents" json:"exclude_agents,omitempty"`
+	CompressionLevel int                 `toml:"compression_level" json:"compression_level"`
+}
+
 // Config holds all application configuration.
 type Config struct {
 	Host                 string          `json:"host" toml:"host"`
@@ -126,6 +160,9 @@ type Config struct {
 	// Used to prevent auto-bind to 0.0.0.0 when the user
 	// explicitly requested a specific host.
 	HostExplicit bool `json:"-" toml:"-"`
+
+	// Sync holds cloud sync configuration (SessionConflux).
+	Sync SyncConfig `json:"sync,omitempty" toml:"sync"`
 }
 
 type dirSource int
@@ -184,6 +221,14 @@ func Default() (Config, error) {
 		WatchExcludePatterns:           []string{".git", "node_modules", "__pycache__", ".venv", "venv", "vendor", ".next"},
 		ResultContentBlockedCategories: []string{"Read", "Glob"},
 		EventsCoalesceInterval:         10 * time.Second,
+		Sync: SyncConfig{
+			Schedule:         "02:00",
+			Direction:        "both",
+			CompressionLevel: 3,
+			Transport: SyncTransportConfig{
+				Backend: "feishu",
+			},
+		},
 	}, nil
 }
 
@@ -340,8 +385,84 @@ func (c *Config) migrateJSONToTOML() error {
 	return nil
 }
 
+// migrateSessionConfluxConfig checks for a legacy ~/.session-conflux/config.toml
+// and migrates its settings into the agentsview config [sync] block.
+// The old file is renamed to config.toml.bak after successful migration.
+func (c *Config) migrateSessionConfluxConfig() error {
+	oldPath, err := scconfig.DefaultPath()
+	if err != nil {
+		return nil // can't determine path, skip
+	}
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		return nil // no old config to migrate
+	}
+
+	// Only migrate if the agentsview config doesn't already have
+	// explicit sync transport credentials.
+	if c.Sync.Transport.Backend != "" &&
+		(c.Sync.Transport.Feishu.AppID != "" ||
+			c.Sync.Transport.SSH.Host != "") {
+		return nil
+	}
+
+	oldCfg, err := scconfig.Load()
+	if err != nil {
+		return nil // corrupted old config, skip silently
+	}
+
+	hasCredentials := oldCfg.Transport.Feishu.AppID != "" ||
+		oldCfg.Transport.SSH.Host != ""
+	if !hasCredentials {
+		return nil // nothing worth migrating
+	}
+
+	// Build sync patch.
+	patch := map[string]any{
+		"sync": SyncConfig{
+			Enabled:          true,
+			Schedule:         oldCfg.Sync.Schedule,
+			Direction:        oldCfg.Sync.Direction,
+			CompressionLevel: oldCfg.Compression.Level,
+			ExcludeAgents:    oldCfg.Agents.Exclude,
+			Transport: SyncTransportConfig{
+				Backend: oldCfg.Transport.Backend,
+				Feishu: SyncFeishuConfig{
+					AppID:       oldCfg.Transport.Feishu.AppID,
+					AppSecret:   oldCfg.Transport.Feishu.AppSecret,
+					FolderToken: oldCfg.Transport.Feishu.FolderToken,
+				},
+				SSH: SyncSSHConfig{
+					Host:       oldCfg.Transport.SSH.Host,
+					Port:       oldCfg.Transport.SSH.Port,
+					User:       oldCfg.Transport.SSH.User,
+					KeyFile:    oldCfg.Transport.SSH.KeyFile,
+					RemotePath: oldCfg.Transport.SSH.RemotePath,
+				},
+			},
+		},
+	}
+
+	if err := c.SaveSettings(patch); err != nil {
+		return fmt.Errorf("saving migrated config: %w", err)
+	}
+
+	// Update in-memory config.
+	c.Sync = patch["sync"].(SyncConfig)
+
+	// Rename old config.
+	if err := os.Rename(oldPath, oldPath+".bak"); err != nil {
+		return fmt.Errorf("renaming old config to .bak: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Config) loadFile() error {
 	if err := c.migrateJSONToTOML(); err != nil {
+		return err
+	}
+
+	if err := c.migrateSessionConfluxConfig(); err != nil {
 		return err
 	}
 
@@ -367,6 +488,7 @@ func (c *Config) loadFile() error {
 		Automated                      AutomatedConfig            `toml:"automated"`
 		EventsCoalesceInterval         time.Duration              `toml:"events_coalesce_interval"`
 		CustomModelPricing             map[string]CustomModelRate `toml:"custom_model_pricing"`
+		Sync                           SyncConfig                `toml:"sync"`
 	}
 	meta, err := toml.DecodeFile(path, &file)
 	if err != nil {
@@ -435,6 +557,48 @@ func (c *Config) loadFile() error {
 	}
 	if len(file.CustomModelPricing) > 0 {
 		c.CustomModelPricing = file.CustomModelPricing
+	}
+	if file.Sync.Enabled {
+		c.Sync.Enabled = true
+	}
+	if file.Sync.Schedule != "" {
+		c.Sync.Schedule = file.Sync.Schedule
+	}
+	if file.Sync.Direction != "" {
+		c.Sync.Direction = file.Sync.Direction
+	}
+	if file.Sync.CompressionLevel != 0 {
+		c.Sync.CompressionLevel = file.Sync.CompressionLevel
+	}
+	if file.Sync.ExcludeAgents != nil {
+		c.Sync.ExcludeAgents = file.Sync.ExcludeAgents
+	}
+	if file.Sync.Transport.Backend != "" {
+		c.Sync.Transport.Backend = file.Sync.Transport.Backend
+	}
+	if file.Sync.Transport.Feishu.AppID != "" {
+		c.Sync.Transport.Feishu.AppID = file.Sync.Transport.Feishu.AppID
+	}
+	if file.Sync.Transport.Feishu.AppSecret != "" {
+		c.Sync.Transport.Feishu.AppSecret = file.Sync.Transport.Feishu.AppSecret
+	}
+	if file.Sync.Transport.Feishu.FolderToken != "" {
+		c.Sync.Transport.Feishu.FolderToken = file.Sync.Transport.Feishu.FolderToken
+	}
+	if file.Sync.Transport.SSH.Host != "" {
+		c.Sync.Transport.SSH.Host = file.Sync.Transport.SSH.Host
+	}
+	if file.Sync.Transport.SSH.Port != 0 {
+		c.Sync.Transport.SSH.Port = file.Sync.Transport.SSH.Port
+	}
+	if file.Sync.Transport.SSH.User != "" {
+		c.Sync.Transport.SSH.User = file.Sync.Transport.SSH.User
+	}
+	if file.Sync.Transport.SSH.KeyFile != "" {
+		c.Sync.Transport.SSH.KeyFile = file.Sync.Transport.SSH.KeyFile
+	}
+	if file.Sync.Transport.SSH.RemotePath != "" {
+		c.Sync.Transport.SSH.RemotePath = file.Sync.Transport.SSH.RemotePath
 	}
 
 	// Parse config-file dir arrays for agents that have a
@@ -1222,6 +1386,20 @@ func (c *Config) SaveSettings(patch map[string]any) error {
 	if v, ok := patch["require_auth"]; ok {
 		if b, ok := v.(bool); ok {
 			c.RequireAuth = b
+		}
+	}
+	if v, ok := patch["sync"]; ok {
+		if sc, ok := v.(SyncConfig); ok {
+			c.Sync = sc
+		} else if m, ok := v.(map[string]any); ok {
+			// Re-encode/decode to convert map to struct.
+			var buf bytes.Buffer
+			if err := toml.NewEncoder(&buf).Encode(m); err == nil {
+				var sc SyncConfig
+				if _, err := toml.Decode(buf.String(), &sc); err == nil {
+					c.Sync = sc
+				}
+			}
 		}
 	}
 	return nil

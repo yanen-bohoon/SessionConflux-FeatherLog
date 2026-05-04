@@ -33,3 +33,6 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// Local integration — resolved by go.work at the repo root.
+replace github.com/yanen-bohoon/session-conflux => ../
