@@ -15,6 +15,7 @@ type ModalType =
   | "resync"
   | "update"
   | "confirmDelete"
+  | "cloudSync"
   | null;
 
 /** Block types that can be toggled visible/hidden. */

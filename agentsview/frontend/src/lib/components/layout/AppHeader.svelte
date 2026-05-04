@@ -15,12 +15,14 @@
   import { copyToClipboard } from "../../utils/clipboard.js";
   import ProjectTypeahead from "./ProjectTypeahead.svelte";
   import ImportModal from "../import/ImportModal.svelte";
+  import CloudSyncModal from "../modals/CloudSyncModal.svelte";
   import { t } from "../../i18n/index.js";
 
   const isMac = navigator.platform.toUpperCase().includes("MAC");
   const modKey = isMac ? "Cmd" : "Ctrl";
 
   let showImportModal = $state(false);
+  let showCloudSyncModal = $state(false);
   let showBlockFilter = $state(false);
   let showExportMenu = $state(false);
   let showOverflow = $state(false);
@@ -590,6 +592,19 @@
       <span class="import-label">{t("nav.import")}</span>
     </button>
 
+    <button
+      class="import-btn"
+      onclick={() => showCloudSyncModal = true}
+      title={t("tooltip.cloud_sync")}
+      aria-label={t("tooltip.cloud_sync")}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 8.293V.5A.5.5 0 018 0z"/>
+        <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
+      </svg>
+      <span class="import-label">{t("nav.cloud_sync")}</span>
+    </button>
+
     <span class="header-divider"></span>
 
     <button
@@ -635,6 +650,15 @@
   bind:open={showImportModal}
   onclose={() => showImportModal = false}
   onimported={() => {
+    sessions.invalidateFilterCaches();
+    sessions.load();
+  }}
+/>
+
+<CloudSyncModal
+  bind:open={showCloudSyncModal}
+  onclose={() => showCloudSyncModal = false}
+  onsynced={() => {
     sessions.invalidateFilterCaches();
     sessions.load();
   }}

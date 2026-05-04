@@ -795,6 +795,7 @@ export interface AppSettings {
   port: number;
   auth_token?: string;
   require_auth?: boolean;
+  sync_cloud?: import("./types/sync-cloud.js").CloudSyncConfig;
 }
 
 export function getSettings(): Promise<AppSettings> {
@@ -809,6 +810,162 @@ export function updateSettings(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
+}
+
+/* Cloud Sync (SessionConflux) */
+
+export interface CloudSyncStatus {
+  entries: number;
+  uploaded_count: number;
+  downloaded_count: number;
+  last_upload?: string;
+  last_download?: string;
+}
+
+export interface CloudSyncStats {
+  total: number;
+  synced: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface CloudSyncTestResult {
+  ok: boolean;
+  message: string;
+}
+
+export type CloudSyncEvent =
+  | { type: "started"; operation: string }
+  | { type: "done"; stats: CloudSyncStats }
+  | { type: "error"; message: string };
+
+export interface CloudSyncStream {
+  abort: () => void;
+  done: Promise<CloudSyncStats>;
+}
+
+function readCloudSyncSSE(
+  res: Response,
+  onEvent?: (ev: CloudSyncEvent) => void,
+): CloudSyncStream {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  const abortController = new AbortController();
+  let buf = "";
+
+  const done = (async (): Promise<CloudSyncStats> => {
+    for (;;) {
+      const { done: streamDone, value } = await reader.read();
+      if (streamDone) break;
+      buf += decoder.decode(value, { stream: true });
+
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+
+        let event = "";
+        let data = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event: ")) event = line.slice(7);
+          else if (line.startsWith("data: ")) data = line.slice(6);
+        }
+        if (!event || !data) continue;
+
+        const parsed = JSON.parse(data);
+        switch (event) {
+          case "started":
+            onEvent?.({ type: "started", operation: parsed.operation });
+            break;
+          case "done":
+            onEvent?.({ type: "done", stats: parsed as CloudSyncStats });
+            if (!reader.closed) reader.cancel();
+            return parsed as CloudSyncStats;
+          case "error":
+            onEvent?.({ type: "error", message: parsed.message });
+            if (!reader.closed) reader.cancel();
+            throw new Error(parsed.message);
+        }
+      }
+    }
+    throw new Error("Cloud sync stream ended without result");
+  })();
+
+  return {
+    abort() {
+      abortController.abort();
+      if (!reader.closed) reader.cancel();
+    },
+    done,
+  };
+}
+
+export function getCloudSyncStatus(): Promise<CloudSyncStatus> {
+  return fetchJSON("/sync-cloud/status");
+}
+
+export async function testCloudSyncConnection(): Promise<CloudSyncTestResult> {
+  return fetchJSON("/sync-cloud/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export function uploadCloudSync(
+  onEvent?: (ev: CloudSyncEvent) => void,
+): CloudSyncStream {
+  const init = authHeaders({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "text/event-stream");
+  const ctrl = new AbortController();
+  const res = fetch(`${getBase()}/sync-cloud/upload`, {
+    ...init,
+    headers,
+    signal: ctrl.signal,
+  });
+  const stream = res.then((r) => {
+    if (!r.ok) throw new Error(`Upload failed (${r.status})`);
+    return readCloudSyncSSE(r, onEvent);
+  });
+  return {
+    abort() {
+      ctrl.abort();
+    },
+    done: stream.then((s) => s.done),
+  };
+}
+
+export function downloadCloudSync(
+  onEvent?: (ev: CloudSyncEvent) => void,
+): CloudSyncStream {
+  const init = authHeaders({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "text/event-stream");
+  const ctrl = new AbortController();
+  const res = fetch(`${getBase()}/sync-cloud/download`, {
+    ...init,
+    headers,
+    signal: ctrl.signal,
+  });
+  const stream = res.then((r) => {
+    if (!r.ok) throw new Error(`Download failed (${r.status})`);
+    return readCloudSyncSSE(r, onEvent);
+  });
+  return {
+    abort() {
+      ctrl.abort();
+    },
+    done: stream.then((s) => s.done),
+  };
 }
 
 /* Analytics */
