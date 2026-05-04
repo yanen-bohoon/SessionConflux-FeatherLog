@@ -5,8 +5,8 @@ export const zh: Record<string, string> = {
   'nav.more': '更多',
   'nav.analytics': '分析',
   'nav.trends': '趋势',
-  'nav.pinned': '已固定',
-  'nav.insights': '洞察',
+  'nav.pinned': '收藏',
+  'nav.insights': '智能分析',
   'nav.trash': '回收站',
   'nav.settings': '设置',
   'nav.import': '导入',
@@ -95,8 +95,8 @@ export const zh: Record<string, string> = {
   'appearance.message_width': '消息宽度',
   'appearance.message_layout': '消息布局',
   'appearance.compact': '紧凑',
-  'appearance.default': '默认',
-  'appearance.stream': '流式',
+  'appearance.default': '标准',
+  'appearance.stream': '自然',
   'appearance.wide': '宽屏',
   'appearance.block_visibility': '内容块可见性',
 
@@ -263,7 +263,7 @@ export const zh: Record<string, string> = {
   'appearance.locale': '语言',
 
   // Trends page
-  'trends.title': '趋势',
+  'trends.title': '热词趋势',
   'trends.reset': '重置',
   'trends.refresh': '刷新',
   'trends.refreshing': '刷新中...',
@@ -277,8 +277,8 @@ export const zh: Record<string, string> = {
   'trends.terms': '关键词',
   'trends.terms_hint': '每行一个',
   'trends.computing': '计算趋势中...',
-  'trends.chart_normalized': '每千条消息中的词条出现趋势',
-  'trends.chart_raw': '词条出现趋势',
+  'trends.chart_normalized': '每千条消息中的词频趋势',
+  'trends.chart_raw': '词频趋势',
   'trends.y_axis_normalized': '每千条消息出现次数',
   'trends.y_axis_raw': '出现次数',
   'trends.no_data': '无趋势数据',
@@ -291,7 +291,7 @@ export const zh: Record<string, string> = {
   'insights.mode_daily': '每日活动',
   'insights.mode_range': '日期范围活动',
   'insights.mode_agent': 'Agent 分析',
-  'insights.type_analysis': '分析',
+  'insights.type_analysis': '分析报告',
   'insights.type_daily': '每日',
   'insights.type_range': '范围',
   'insights.from': '开始',
@@ -310,7 +310,7 @@ export const zh: Record<string, string> = {
   'insights.dismiss': '关闭',
   'insights.cancel': '取消',
   'insights.loading': '加载中...',
-  'insights.empty_generate': '生成分析以查看会话洞察',
+  'insights.empty_generate': '生成报告以查看智能分析',
   'insights.completed': '已完成',
   'insights.error': '错误',
   'insights.generating': '生成中',
@@ -338,17 +338,17 @@ export const zh: Record<string, string> = {
   'trash.msgs': '条消息',
 
   // Pinned page
-  'pinned.title': '已固定消息',
-  'pinned.loading': '加载固定消息...',
-  'pinned.empty_project': '此项目没有固定消息',
+  'pinned.title': '收藏的消息',
+  'pinned.loading': '加载收藏消息...',
+  'pinned.empty_project': '此项目没有收藏消息',
   'pinned.empty_project_desc': '尝试选择其他项目或清除项目筛选。',
-  'pinned.empty': '没有固定消息',
-  'pinned.empty_desc': '点击消息标题中的固定图标即可从任意会话中固定消息。',
+  'pinned.empty': '没有收藏消息',
+  'pinned.empty_desc': '点击消息标题中的收藏图标即可收藏',
   'pinned.go_to_msg': '跳转到消息',
   'pinned.collapse': '收起',
   'pinned.expand': '展开',
   'pinned.copy_msg': '复制消息',
-  'pinned.unpin': '取消固定',
+  'pinned.unpin': '取消收藏',
 
   // Usage page
   'usage.label_project': '项目',
@@ -404,7 +404,7 @@ export const zh: Record<string, string> = {
   'analytics.refresh_title': '刷新分析',
   'analytics.refresh_aria': '刷新分析',
   'analytics.export_csv': '导出 CSV',
-  'analytics.activity_chart': '按日和小时的活跃度',
+  'analytics.activity_chart': '活跃时段分布',
   'analytics.by_agent': '按 Agent',
   'analytics.by_size': '按规模',
   'analytics.output_tokens': '输出 Token',
@@ -418,8 +418,8 @@ export const zh: Record<string, string> = {
   'analytics.clamp_note': '显示最近一年数据',
 
   // Analytics — Session Shape
-  'analytics.session_shape': '会话形态',
-  'analytics.shape_autonomy': '自主度',
+  'analytics.session_shape': '会话结构',
+  'analytics.shape_autonomy': 'AI 自主程度',
   'analytics.shape_sessions': '{n} 个会话',
 
   // Analytics — Summary Cards
@@ -430,8 +430,8 @@ export const zh: Record<string, string> = {
   // Analytics — Velocity
   'analytics.velocity': '响应速度',
   'analytics.overview': '总览',
-  'analytics.turn_cycle_p50': '轮次周期 (p50)',
-  'analytics.turn_cycle_p90': '轮次周期 (p90)',
+  'analytics.turn_cycle_p50': '每轮耗时 (p50)',
+  'analytics.turn_cycle_p90': '每轮耗时 (p90)',
   'analytics.first_response_p50': '首次响应 (p50)',
   'analytics.first_response_p90': '首次响应 (p90)',
   'analytics.msgs_per_active_min': '消息/活跃分钟',
@@ -472,7 +472,7 @@ export const zh: Record<string, string> = {
   'analytics.no_comparison_data': '无可对比数据（需 2+ 个 Agent）',
 
   // Analytics — Session Health
-  'analytics.session_health': '会话健康度',
+  'analytics.session_health': '会话质量',
   'analytics.scored': '已评分',
   'analytics.unscored': '未评分',
   'analytics.messages_label': '{n} 条消息',
@@ -482,7 +482,7 @@ export const zh: Record<string, string> = {
   'analytics.completed': '已完成',
   'analytics.errored': '出错',
   'analytics.tool_failures': '工具失败',
-  'analytics.compactions': '压缩次数',
+  'analytics.compactions': '上下文压缩',
   'analytics.mid_task': '任务中途',
   'analytics.avg_per_session': '平均 {n}/会话',
   'analytics.by_agent_table': '按 Agent',
@@ -495,9 +495,9 @@ export const zh: Record<string, string> = {
   'analytics.grade_distribution': '等级分布',
 
   // Analytics — Health Trend
-  'analytics.health_trend': '健康趋势',
+  'analytics.health_trend': '质量趋势',
   'analytics.no_scored_sessions': '无已评分会话',
-  'analytics.health_caption': '每日平均健康分 · 柱色 = 等级',
+  'analytics.health_caption': '每日平均质量分 · 柱色 = 等级',
 
   // Analytics — Outcome Distribution
   'analytics.outcome_distribution': '结果分布',
@@ -587,8 +587,8 @@ export const zh: Record<string, string> = {
   'session.copy_dir_path': '复制目录路径',
   'session.open_in': '打开方式',
   'session.copy_link': '复制会话链接',
-  'session.vital_signs': '会话 Vital 面板',
-  'session.toggle_vitals': '切换会话 Vital 面板',
+  'session.vital_signs': '会话体征',
+  'session.toggle_vitals': '切换会话体征面板',
   'session.find': '会话内搜索 (/)',
   'session.rename': '重命名',
   'session.delete': '删除',
@@ -616,10 +616,10 @@ export const zh: Record<string, string> = {
   // Message actions
   'message.copy': '复制消息',
   'message.copied': '已复制!',
-  'message.pin': '固定消息',
-  'message.unpin': '取消固定',
-  'message.pinned': '已固定',
-  'message.unpinned': '已取消固定',
+  'message.pin': '收藏',
+  'message.unpin': '取消收藏',
+  'message.pinned': '已收藏',
+  'message.unpinned': '已取消收藏',
 
   // Tool calls
   'tool.n_tool_calls': '{n} 个工具调用',
@@ -662,7 +662,7 @@ export const zh: Record<string, string> = {
 
   // Signal panel
   'signal.empty': '没有足够的活动数据来分析此会话。',
-  'signal.health_grade': '健康评分 {grade}',
+  'signal.health_grade': '质量评分 {grade}',
   'signal.based_on': '基于:',
   'signal.factored': '计入评分',
   'signal.compaction': '次压缩',
