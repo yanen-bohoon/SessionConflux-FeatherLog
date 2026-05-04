@@ -6,10 +6,36 @@
 
 ## 安装
 
-**前置要求**：Go 1.21+。
+### 1. 安装 Go
+
+**macOS**
 
 ```bash
-# 一键安装（含 AgentsView 浏览端）
+brew install go
+```
+
+**Linux**
+
+```bash
+wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Windows**
+
+[下载安装包](https://go.dev/dl/) 或 `winget install GoLang.Go`
+
+验证安装：
+
+```bash
+go version  # 需显示 go1.21 以上
+```
+
+### 2. 克隆并构建
+
+```bash
 git clone https://github.com/yanen-bohoon/SessionConflux-FeatherLog.git
 cd SessionConflux-FeatherLog
 make install
@@ -17,12 +43,7 @@ make install
 
 `session-conflux` 和 `agentsview` 将安装到 `~/SessionConflux-FeatherLog/`。
 
-如果只想装同步工具：
-
-```bash
-make build          # 仅构建 session-conflux
-cp session-conflux ~/SessionConflux-FeatherLog/
-```
+`make install` = `make build`（同步工具）+ `make build-av`（浏览端），两个二进制一次性构建安装。
 
 ## 快速开始
 
@@ -51,6 +72,7 @@ session-conflux sync
 # 6. 启动本地浏览端
 agentsview serve
 # 浏览器打开 http://127.0.0.1:8080
+# agentsview 自动监听 agent 目录，新会话实时入库，无需手动刷新
 ```
 
 ## 命令
