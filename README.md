@@ -36,40 +36,40 @@ go version  # 需显示 go1.21 以上
 ### 2. 克隆并构建
 
 ```bash
+# 1. 克隆仓库
 git clone https://github.com/yanen-bohoon/SessionConflux-FeatherLog.git
+
+# 2. 进入项目目录
 cd SessionConflux-FeatherLog
+
+# 3. 构建并安装（含 session-conflux + agentsview）
 make install
 ```
 
-`session-conflux` 和 `agentsview` 将安装到 `~/SessionConflux-FeatherLog/`。
-
-`make install` = `make build`（同步工具）+ `make build-av`（浏览端），两个二进制一次性构建安装。
+`session-conflux` 和 `agentsview` 安装到 `~/SessionConflux-FeatherLog/`。
 
 ## 快速开始
 
-安装后建议将目录加入 PATH：
-
 ```sh
+# 1. 将安装目录加入 PATH
 export PATH="$HOME/SessionConflux-FeatherLog:$PATH"
-```
 
-```sh
-# 1. 配置传输方式（飞书或SSH）
+# 2. 配置传输方式（飞书或SSH）
 session-conflux setup
 
-# 2. 查看本地会话
+# 3. 查看本地会话
 session-conflux list
 
-# 3. 上传
+# 4. 上传会话到远端
 session-conflux upload
 
-# 4. 在另一台机器上下载全部会话
+# 5. 下载其他机器的会话（可选）
 session-conflux download --all
 
-# 5. 或启动守护进程，每天自动同步
+# 6. 启动守护进程，每天自动同步（可选）
 session-conflux sync
 
-# 6. 启动本地浏览端
+# 7. 启动本地浏览端（可选）
 agentsview serve
 # 浏览器打开 http://127.0.0.1:8080
 # agentsview 自动监听 agent 目录，新会话实时入库，无需手动刷新
