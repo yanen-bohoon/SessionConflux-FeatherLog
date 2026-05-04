@@ -20,6 +20,7 @@ import (
 	"github.com/wesm/agentsview/internal/server"
 	"github.com/wesm/agentsview/internal/signals"
 	"github.com/wesm/agentsview/internal/sync"
+	"github.com/wesm/agentsview/internal/synccloud"
 )
 
 var (
@@ -167,6 +168,11 @@ func runServe(cfg config.Config) {
 		if len(unwatchedDirs) > 0 {
 			go startUnwatchedPoll(engine)
 		}
+	}
+
+	// Start cloud sync daemon (SessionConflux).
+	if cfg.Sync.Enabled {
+		go synccloud.RunDaemon(ctx, &cfg)
 	}
 
 	// Seed model_pricing after any resync swap so the new DB

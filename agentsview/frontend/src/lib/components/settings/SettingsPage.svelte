@@ -8,6 +8,7 @@
   import TerminalSettings from "./TerminalSettings.svelte";
   import GithubSettings from "./GithubSettings.svelte";
   import RemoteSettings from "./RemoteSettings.svelte";
+	import SyncCloudSettings from "./SyncCloudSettings.svelte";
   import { t } from "../../i18n/index.js";
 
   let authTokenInput: string = $state("");
@@ -89,6 +90,7 @@
       <TerminalSettings />
       <GithubSettings />
       <RemoteSettings />
+      <SyncCloudSettings />
 
       <div class="settings-actions">
         <button
