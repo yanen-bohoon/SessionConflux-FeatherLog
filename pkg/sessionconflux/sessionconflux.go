@@ -28,12 +28,12 @@ type Info struct {
 
 // Upload scans local agent directories, compares against sync state,
 // and uploads changed sessions to the configured transport.
-func Upload(cfg *config.Config, st *state.Store) (*Stats, error) {
+func Upload(cfg *config.Config, st *state.Store, files []sync.SyncFile) (*Stats, error) {
 	t, err := transport.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	result, err := sync.UploadChanged(t, cfg, st)
+	result, err := sync.UploadChanged(t, cfg, st, files)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func Upload(cfg *config.Config, st *state.Store) (*Stats, error) {
 
 // Download retrieves all remote sessions (from other machines)
 // and writes them to local agent directories.
-func Download(cfg *config.Config, st *state.Store) (*Stats, error) {
+func Download(cfg *config.Config, st *state.Store, findAgentDir func(string) string) (*Stats, error) {
 	t, err := transport.New(cfg)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func Download(cfg *config.Config, st *state.Store) (*Stats, error) {
 	// DownloadAllSessions internally uses its own state loading —
 	// we pass the caller's state by replacing the default path.
 	// For now, DownloadAllSessions manages state internally via state.Load().
-	n, err := sync.DownloadAllSessions(t)
+	n, err := sync.DownloadAllSessions(t, findAgentDir)
 	if err != nil {
 		return nil, err
 	}

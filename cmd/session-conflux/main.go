@@ -13,7 +13,6 @@ import (
 
 	avcli "github.com/wesm/agentsview/cmd/agentsview"
 	"github.com/yanen-bohoon/session-conflux/pkg/config"
-	"github.com/yanen-bohoon/session-conflux/pkg/scanner"
 	"github.com/yanen-bohoon/session-conflux/pkg/scheduler"
 	"github.com/yanen-bohoon/session-conflux/pkg/state"
 	"github.com/yanen-bohoon/session-conflux/pkg/sync"
@@ -159,7 +158,18 @@ func runSync(cmd *cobra.Command, args []string) {
 
 		if doUpload {
 			fmt.Println("--- Upload ---")
-			stats, err := sync.UploadChanged(t, cfg, st)
+			avCfg := avcli.MustLoadConfig(cmd)
+			avFiles := avcli.GetChangedFiles(avCfg, time.Time{})
+			var files []sync.SyncFile
+			for _, f := range avFiles {
+				files = append(files, sync.SyncFile{
+					Path:  f.Path,
+					Agent: f.Agent,
+					Size:  f.Size,
+					Mtime: f.Mtime,
+				})
+			}
+			stats, err := sync.UploadChanged(t, cfg, st, files)
 			if err != nil {
 				return fmt.Errorf("upload: %w", err)
 			}
@@ -171,7 +181,10 @@ func runSync(cmd *cobra.Command, args []string) {
 				fmt.Println()
 			}
 			fmt.Println("--- Download ---")
-			n, err := sync.DownloadAllSessions(t)
+			findAgentDir := func(agent string) string {
+				return avcli.ResolveAgentDir(avcli.MustLoadConfig(cmd), agent)
+			}
+			n, err := sync.DownloadAllSessions(t, findAgentDir)
 			if err != nil {
 				return fmt.Errorf("download: %w", err)
 			}
@@ -475,22 +488,9 @@ func writeAgentsviewConfig(port int) error {
 }
 
 func runList(cmd *cobra.Command, args []string) {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
-		os.Exit(1)
-	}
-
-	exclude := make(map[string]bool)
-	for _, a := range cfg.Agents.Exclude {
-		exclude[a] = true
-	}
-
-	results, err := scanner.Scan(exclude)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
-		os.Exit(1)
-	}
+	// MustLoadConfig panics on error
+	avCfg := avcli.MustLoadConfig(cmd)
+	results := avcli.GetChangedFiles(avCfg, time.Time{})
 
 	if len(results) == 0 {
 		fmt.Println("No sessions found.")
@@ -500,8 +500,15 @@ func runList(cmd *cobra.Command, args []string) {
 	fmt.Printf("%-12s %-20s %8s\n", "AGENT", "SESSION ID", "SIZE")
 	fmt.Println(strings.Repeat("-", 50))
 	for _, r := range results {
-		sizeKB := r.Size / 1024
-		fmt.Printf("%-12s %-20s %6dK\n", r.Agent, r.SessionID, sizeKB)
+		// Calculate size
+		info, err := os.Stat(r.Path)
+		var sizeKB int64
+		if err == nil {
+			sizeKB = info.Size() / 1024
+		}
+		// session ID without .jsonl
+		sessionID := strings.TrimSuffix(filepath.Base(r.Path), ".jsonl")
+		fmt.Printf("%-12s %-20s %6dK\n", r.Agent, sessionID, sizeKB)
 	}
 	fmt.Printf("\n%d sessions total.\n", len(results))
 }
@@ -531,7 +538,20 @@ func runUpload(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println("Scanning for changed sessions...")
-	stats, err := sync.UploadChanged(t, cfg, st)
+	// MustLoadConfig panics on error internally
+	avCfg := avcli.MustLoadConfig(cmd)
+	avFiles := avcli.GetChangedFiles(avCfg, time.Time{})
+	var files []sync.SyncFile
+	for _, f := range avFiles {
+		files = append(files, sync.SyncFile{
+			Path:  f.Path,
+			Agent: f.Agent,
+			Size:  f.Size,
+			Mtime: f.Mtime,
+		})
+	}
+	
+	stats, err := sync.UploadChanged(t, cfg, st, files)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Upload failed: %v\n", err)
 		os.Exit(1)
@@ -562,7 +582,11 @@ func runDownload(cmd *cobra.Command, args []string) {
 	// --all flag
 	if downloadAll {
 		fmt.Println("Downloading all remote sessions...")
-		n, err := sync.DownloadAllSessions(t)
+		avCfg := avcli.MustLoadConfig(cmd)
+		findAgentDir := func(agent string) string {
+			return avcli.ResolveAgentDir(avCfg, agent)
+		}
+		n, err := sync.DownloadAllSessions(t, findAgentDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 			os.Exit(1)
@@ -578,9 +602,13 @@ func runDownload(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stderr, "Failed to list remote sessions: %v\n", err)
 			os.Exit(1)
 		}
+		avCfg := avcli.MustLoadConfig(cmd)
+		findAgentDir := func(agent string) string {
+			return avcli.ResolveAgentDir(avCfg, agent)
+		}
 		for _, s := range sessions {
 			if s.Key == downloadSession {
-				if err := sync.DownloadSession(t, s); err != nil {
+				if err := sync.DownloadSession(t, s, findAgentDir); err != nil {
 					fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 					os.Exit(1)
 				}

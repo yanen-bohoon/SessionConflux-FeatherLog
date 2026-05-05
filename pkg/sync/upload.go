@@ -10,7 +10,6 @@ import (
 	"github.com/yanen-bohoon/session-conflux/pkg/bundle"
 	"github.com/yanen-bohoon/session-conflux/pkg/compress"
 	"github.com/yanen-bohoon/session-conflux/pkg/config"
-	"github.com/yanen-bohoon/session-conflux/pkg/scanner"
 	"github.com/yanen-bohoon/session-conflux/pkg/state"
 	"github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
@@ -21,13 +20,15 @@ type UploadStats struct {
 	Total, Synced, Skipped, Failed int
 }
 
-func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store) (*UploadStats, error) {
-	hostname, _ := os.Hostname()
+type SyncFile struct {
+	Path  string
+	Agent string
+	Size  int64
+	Mtime int64
+}
 
-	exclude := make(map[string]bool)
-	for _, a := range cfg.Agents.Exclude {
-		exclude[a] = true
-	}
+func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile) (*UploadStats, error) {
+	hostname, _ := os.Hostname()
 
 	// Ensure host folder exists.
 	if err := t.CreateFolder(hostname); err != nil {
@@ -41,7 +42,7 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store) (
 
 	if !baselineHasFiles(t, baselinePath) {
 		fmt.Println("First run — uploading baseline bundle...")
-		n, err := uploadBaseline(t, hostname, baselinePath, exclude, cfg.Compression.Level)
+		n, err := uploadBaseline(t, hostname, baselinePath, files, cfg.Compression.Level)
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +55,7 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store) (
 	}
 
 	fmt.Println("Scanning for changes...")
-	return uploadIncremental(t, incrPath, hostname, exclude, st, cfg.Compression.Level)
+	return uploadIncremental(t, incrPath, hostname, files, st, cfg.Compression.Level)
 }
 
 func baselineHasFiles(t transport.Transport, folderPath string) bool {
@@ -67,8 +68,7 @@ func baselineHasFiles(t transport.Transport, folderPath string) bool {
 	return false
 }
 
-func uploadBaseline(t transport.Transport, hostname, baselinePath string, exclude map[string]bool, level int) (int, error) {
-	files, _ := scanner.Scan(exclude, scanner.SkipSynced)
+func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, level int) (int, error) {
 	fmt.Printf("Packing %d files...\n", len(files))
 
 	sessionData := make(map[string][]byte)
@@ -80,7 +80,9 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, exclud
 		if err != nil {
 			continue
 		}
-		key := filepath.Join(hostname, f.Agent, f.SessionID+".jsonl")
+		// Derive session ID from filename
+		sessionID := strings.TrimSuffix(filepath.Base(f.Path), ".jsonl")
+		key := filepath.Join(hostname, f.Agent, sessionID+".jsonl")
 		sessionData[key] = data
 	}
 
@@ -123,12 +125,12 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, exclud
 	return len(files), nil
 }
 
-func uploadIncremental(t transport.Transport, incrPath, hostname string, exclude map[string]bool, st *state.Store, level int) (*UploadStats, error) {
-	files, _ := scanner.Scan(exclude, scanner.SkipSynced)
+func uploadIncremental(t transport.Transport, incrPath, hostname string, files []SyncFile, st *state.Store, level int) (*UploadStats, error) {
 	stats := &UploadStats{Total: len(files)}
 
 	for _, f := range files {
-		key := fmt.Sprintf("%s/%s/%s", hostname, f.Agent, f.SessionID)
+		sessionID := strings.TrimSuffix(filepath.Base(f.Path), ".jsonl")
+		key := fmt.Sprintf("%s/%s/%s", hostname, f.Agent, sessionID)
 
 		if !st.HasChanged(key, f.Size, f.Mtime) {
 			stats.Skipped++
@@ -149,7 +151,7 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, exclude
 			continue
 		}
 
-		fileName := filepath.Join(f.Agent, f.SessionID+".jsonl.zst")
+		fileName := filepath.Join(f.Agent, sessionID+".jsonl.zst")
 
 		err = t.UploadFile(incrPath, fileName, compressed)
 		if err != nil {

@@ -284,7 +284,50 @@ func (e *Engine) SyncPaths(paths []string) {
 	}
 }
 
-// classifyPaths maps changed file system paths to
+// AgentDirs returns the configured agent directories.
+func (e *Engine) AgentDirs() map[parser.AgentType][]string {
+	return e.agentDirs
+}
+
+// ChangedFiles returns a list of discovered files that have
+// been modified since the given timestamp. It leverages the
+// engine's knowledge of agent directory layouts.
+func (e *Engine) ChangedFiles(since time.Time) []parser.DiscoveredFile {
+	var files []parser.DiscoveredFile
+
+	// Dedicated fast-path discovery:
+	for agentType, dirs := range e.agentDirs {
+		for _, dir := range dirs {
+			if dir == "" {
+				continue
+			}
+			var def parser.AgentDef
+			for _, d := range parser.Registry {
+				if d.Type == agentType {
+					def = d
+					break
+				}
+			}
+			if def.Type == "" || def.DiscoverFunc == nil {
+				continue
+			}
+			discovered := def.DiscoverFunc(dir)
+			for _, f := range discovered {
+				info, err := os.Stat(f.Path)
+				if err != nil {
+					continue
+				}
+				if info.ModTime().After(since) {
+					if f.Machine == "" {
+						f.Machine = e.machineFor(f)
+					}
+					files = append(files, f)
+				}
+			}
+		}
+	}
+	return files
+}
 // parser.DiscoveredFile structs, filtering out paths that don't
 // match known session file patterns.
 // extractSyncedMachine returns the hostname from a _synced/{hostname}/ path.

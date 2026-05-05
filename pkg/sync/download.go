@@ -9,7 +9,6 @@ import (
 
 	"github.com/yanen-bohoon/session-conflux/pkg/bundle"
 	"github.com/yanen-bohoon/session-conflux/pkg/compress"
-	"github.com/yanen-bohoon/session-conflux/pkg/registry"
 	"github.com/yanen-bohoon/session-conflux/pkg/state"
 	"github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
@@ -74,7 +73,7 @@ func ListRemoteSessions(t transport.Transport) ([]RemoteSession, error) {
 
 // DownloadAllSessions downloads from all machines: baseline bundles + incremental files.
 // Skips the local machine to avoid downloading its own sessions back.
-func DownloadAllSessions(t transport.Transport) (int, error) {
+func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string) (int, error) {
 	st, err := state.Load()
 	if err != nil {
 		return 0, fmt.Errorf("load state: %w", err)
@@ -113,10 +112,10 @@ func DownloadAllSessions(t transport.Transport) (int, error) {
 			}
 			switch l3.Name {
 			case "baseline":
-				n := downloadBaseline(t, host.Name, host.Name+"/baseline", st, now)
+				n := downloadBaseline(t, host.Name, host.Name+"/baseline", st, now, findAgentDir)
 				downloaded += n
 			case "incremental":
-				n := downloadIncremental(t, host.Name, host.Name+"/incremental", st, now)
+				n := downloadIncremental(t, host.Name, host.Name+"/incremental", st, now, findAgentDir)
 				downloaded += n
 			}
 		}
@@ -126,7 +125,7 @@ func DownloadAllSessions(t transport.Transport) (int, error) {
 	return downloaded, nil
 }
 
-func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *state.Store, now time.Time) int {
+func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *state.Store, now time.Time, findAgentDir func(string) string) int {
 	files, err := t.ListFiles(baselinePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list baseline: %v\n", err)
@@ -210,7 +209,7 @@ func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *
 	return n
 }
 
-func downloadIncremental(t transport.Transport, hostname, incrPath string, st *state.Store, now time.Time) int {
+func downloadIncremental(t transport.Transport, hostname, incrPath string, st *state.Store, now time.Time, findAgentDir func(string) string) int {
 	files, err := t.ListFiles(incrPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list incremental: %v\n", err)
@@ -296,7 +295,7 @@ func parseBundleEntry(name string) (hostname, agent, sessionID string) {
 	return
 }
 
-func DownloadSession(t transport.Transport, session RemoteSession) error {
+func DownloadSession(t transport.Transport, session RemoteSession, findAgentDir func(string) string) error {
 	fmt.Printf("  Downloading %s...", session.Key)
 	data, err := t.DownloadFile(session.Path)
 	if err != nil {
@@ -325,19 +324,6 @@ func writeToAgentDir(hostname, agent, sessionID string, data []byte, agentDir st
 		return fmt.Errorf("write: %w", err)
 	}
 	return nil
-}
-
-func findAgentDir(agent string) string {
-	for _, def := range registry.AllAgents {
-		if def.Type == agent {
-			dirs := registry.ResolveAgentDirs(def)
-			if len(dirs) > 0 {
-				return dirs[0]
-			}
-			break
-		}
-	}
-	return ""
 }
 
 func formatBytes(n int64) string {

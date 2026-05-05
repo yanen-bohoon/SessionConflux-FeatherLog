@@ -3,10 +3,14 @@ package server
 import (
 	"log"
 	"net/http"
+	"os"
+	"time"
 
+	"github.com/wesm/agentsview/internal/parser"
 	"github.com/wesm/agentsview/internal/synccloud"
 
 	sessionconflux "github.com/yanen-bohoon/session-conflux/pkg/sessionconflux"
+	confluxsync "github.com/yanen-bohoon/session-conflux/pkg/sync"
 )
 
 // handleSyncCloudUpload streams an upload via SSE.
@@ -31,7 +35,22 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 
 	stream.SendJSON("started", map[string]string{"operation": "upload"})
 
-	stats, err := sessionconflux.Upload(scCfg, st)
+	discoveredFiles := s.engine.ChangedFiles(time.Time{})
+	var files []confluxsync.SyncFile
+	for _, f := range discoveredFiles {
+		info, err := os.Stat(f.Path)
+		if err != nil {
+			continue
+		}
+		files = append(files, confluxsync.SyncFile{
+			Path:  f.Path,
+			Agent: string(f.Agent),
+			Size:  info.Size(),
+			Mtime: info.ModTime().UnixNano(),
+		})
+	}
+
+	stats, err := sessionconflux.Upload(scCfg, st, files)
 	if err != nil {
 		log.Printf("cloud sync upload: %v", err)
 		stream.SendJSON("error", map[string]string{"message": err.Error()})
@@ -67,7 +86,16 @@ func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request)
 
 	stream.SendJSON("started", map[string]string{"operation": "download"})
 
-	stats, err := sessionconflux.Download(scCfg, st)
+	findAgentDir := func(agent string) string {
+		dirs := s.cfg.AgentDirs[parser.AgentType(agent)]
+		if len(dirs) > 0 {
+			return dirs[0]
+		}
+		return ""
+	}
+
+
+	stats, err := sessionconflux.Download(scCfg, st, findAgentDir)
 	if err != nil {
 		log.Printf("cloud sync download: %v", err)
 		stream.SendJSON("error", map[string]string{"message": err.Error()})
