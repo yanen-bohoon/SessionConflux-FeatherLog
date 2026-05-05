@@ -31,6 +31,7 @@
   import { starred } from "./lib/stores/starred.svelte.js";
   import { pins } from "./lib/stores/pins.svelte.js";
   import { settings } from "./lib/stores/settings.svelte.js";
+  import { cloudSync } from "./lib/stores/cloudSync.svelte.js";
   import { setAuthToken, getAuthToken, setServerUrl, getBase } from "./lib/api/client.js";
   import { setupVisibilityHealthCheck } from "./lib/utils/health.js";
   import { registerShortcuts } from "./lib/utils/keyboard.js";
@@ -352,6 +353,7 @@
     sync.loadVersion();
     sync.checkForUpdate();
     sync.startPolling();
+    cloudSync.loadAll();
 
     const healthCleanup = setupVisibilityHealthCheck(getBase);
 

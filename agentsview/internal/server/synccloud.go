@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/wesm/agentsview/internal/parser"
@@ -12,6 +13,42 @@ import (
 	confluxsync "github.com/yanen-bohoon/session-conflux/pkg/sync"
 	confluxtransport "github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
+
+// remoteCache caches listCloudMachines results with a TTL.
+type remoteCache struct {
+	mu       sync.Mutex
+	machines []cloudMachineInfo
+	expiry   time.Time
+}
+
+var remoteMachineCache remoteCache
+
+const remoteCacheTTL = 30 * time.Second
+
+func (c *remoteCache) get() ([]cloudMachineInfo, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if time.Now().Before(c.expiry) {
+		return c.machines, true
+	}
+	return nil, false
+}
+
+func (c *remoteCache) set(machines []cloudMachineInfo) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.machines = machines
+	c.expiry = time.Now().Add(remoteCacheTTL)
+}
+
+// InvalidateRemoteCache clears the cached remote machine list so the
+// next /remote request re-lists from the transport. Call after upload,
+// download, or delete operations that change remote state.
+func InvalidateRemoteCache() {
+	remoteMachineCache.mu.Lock()
+	defer remoteMachineCache.mu.Unlock()
+	remoteMachineCache.expiry = time.Time{}
+}
 
 // Types for listing remote machine data.
 type cloudIncrementalInfo struct {
@@ -141,6 +178,7 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 		log.Printf("cloud sync save state: %v", err)
 	}
 
+	InvalidateRemoteCache()
 	stream.SendJSON("done", stats)
 }
 
@@ -209,6 +247,7 @@ func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request)
 		log.Printf("cloud sync save state: %v", err)
 	}
 
+	InvalidateRemoteCache()
 	stream.SendJSON("done", stats)
 }
 
@@ -344,6 +383,7 @@ func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	InvalidateRemoteCache()
 	stream.SendJSON("done", map[string]any{
 		"hostname": hostname,
 		"deleted":  total,
@@ -352,7 +392,15 @@ func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Requ
 
 // handleSyncCloudRemote lists remote machines and their data without
 // verifying the connection first (assumes config is already saved/tested).
+// Results are cached for remoteCacheTTL to avoid repeated slow Feishu API calls.
 func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
+	if cached, ok := remoteMachineCache.get(); ok {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"machines": cached,
+		})
+		return
+	}
+
 	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
 	tr, err := confluxtransport.New(scCfg)
 	if err != nil {
@@ -361,6 +409,7 @@ func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	machines := listCloudMachines(tr)
+	remoteMachineCache.set(machines)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"machines": machines,
 	})

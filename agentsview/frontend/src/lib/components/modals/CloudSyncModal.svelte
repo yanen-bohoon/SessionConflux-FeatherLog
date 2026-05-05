@@ -1,15 +1,12 @@
 <script lang="ts">
   import {
-    getCloudSyncStatus,
-    getCloudSyncRemote,
     uploadCloudSync,
     downloadCloudSync,
     deleteCloudSyncRemote,
-    type CloudSyncStatus,
     type CloudSyncStats,
     type CloudSyncEvent,
   } from "../../api/client.js";
-  import type { CloudSyncMachine } from "../../api/types.js";
+  import { cloudSync } from "../../stores/cloudSync.svelte.js";
   import { t } from "../../i18n/index.js";
 
   interface Props {
@@ -28,7 +25,6 @@
 
   let view: View = $state("explorer");
   let errorMessage: string = $state("");
-  let status: CloudSyncStatus | null = $state(null);
   let stats: CloudSyncStats | null = $state(null);
   let operation: string = $state("");
   let abortFn: (() => void) | null = $state(null);
@@ -36,31 +32,9 @@
   let progressCurrent: number = $state(0);
   let progressTotal: number = $state(0);
   let progressDetail: string = $state("");
-  let machines: CloudSyncMachine[] = $state([]);
-  let loadingMachines: boolean = $state(false);
   let downloadingHost: string = $state("");
   let deletingHost: string = $state("");
   let confirmDelete: string = $state("");
-
-  async function loadStatus() {
-    try {
-      status = await getCloudSyncStatus();
-    } catch {
-      // status unavailable — show empty
-    }
-  }
-
-  async function loadMachines() {
-    loadingMachines = true;
-    try {
-      const resp = await getCloudSyncRemote();
-      machines = resp.machines ?? [];
-    } catch {
-      machines = [];
-    } finally {
-      loadingMachines = false;
-    }
-  }
 
   function handleEvent(ev: CloudSyncEvent) {
     switch (ev.type) {
@@ -78,17 +52,15 @@
         progressDetail = ev.detail;
         break;
       case "done":
+        cloudSync.refresh();
         if (deletingHost) {
           deletingHost = "";
           confirmDelete = "";
-          loadStatus();
-          loadMachines();
           view = "explorer";
         } else {
           stats = ev.stats;
           view = "done";
           downloadingHost = "";
-          loadStatus();
           onsynced();
         }
         break;
@@ -166,7 +138,7 @@
     onclose();
   }
 
-  // Load data when modal opens.
+  // Reset view when modal opens.
   $effect(() => {
     if (open) {
       view = "explorer";
@@ -175,8 +147,6 @@
       downloadingHost = "";
       deletingHost = "";
       confirmDelete = "";
-      loadStatus();
-      loadMachines();
     }
   });
 
@@ -217,11 +187,11 @@
                 <span class="section-title">{t("modal.cloud_sync.local_machine")}</span>
               </div>
               <div class="local-card">
-                {#if status}
+                {#if cloudSync.status}
                   <div class="local-stats">
-                    <span class="local-stat">{t("modal.cloud_sync.entries")}: <strong>{status.entries}</strong></span>
-                    <span class="local-stat">{t("modal.cloud_sync.uploaded")}: <strong>{status.uploaded_count}</strong></span>
-                    <span class="local-stat">{t("modal.cloud_sync.downloaded")}: <strong>{status.downloaded_count}</strong></span>
+                    <span class="local-stat">{t("modal.cloud_sync.entries")}: <strong>{cloudSync.status.entries}</strong></span>
+                    <span class="local-stat">{t("modal.cloud_sync.uploaded")}: <strong>{cloudSync.status.uploaded_count}</strong></span>
+                    <span class="local-stat">{t("modal.cloud_sync.downloaded")}: <strong>{cloudSync.status.downloaded_count}</strong></span>
                   </div>
                 {:else}
                   <p class="empty-hint">{t("modal.cloud_sync.empty")}</p>
@@ -240,21 +210,21 @@
             <div class="remote-section">
               <div class="section-header">
                 <span class="section-title">{t("modal.cloud_sync.remote_machines")}</span>
-                <button class="refresh-btn" onclick={loadMachines} disabled={loadingMachines} aria-label={t("modal.cloud_sync.refresh")}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" class:spin={loadingMachines}>
+                <button class="refresh-btn" onclick={() => cloudSync.loadMachines()} disabled={cloudSync.loadingMachines} aria-label={t("modal.cloud_sync.refresh")}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" class:spin={cloudSync.loadingMachines}>
                     <path d="M11.534 7.5A3.5 3.5 0 008 4.5 3.5 3.5 0 004.5 8a.5.5 0 01-1 0A4.5 4.5 0 018 3.5a4.5 4.5 0 014.465 4h1.881a.25.25 0 01.192.41l-2.692 3.536a.25.25 0 01-.384 0L8.77 7.91a.25.25 0 01.192-.41H11.534z"/>
                     <path fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM.5 8a7.5 7.5 0 1115 0A7.5 7.5 0 01.5 8z"/>
                   </svg>
                 </button>
               </div>
 
-              {#if loadingMachines}
+              {#if cloudSync.loadingMachines}
                 <p class="loading-hint">{t("modal.cloud_sync.loading")}</p>
-              {:else if machines.length === 0}
+              {:else if cloudSync.machines.length === 0}
                 <p class="empty-hint">{t("modal.cloud_sync.no_remote")}</p>
               {:else}
                 <div class="machine-list">
-                  {#each machines as m}
+                  {#each cloudSync.machines as m}
                     <div class="machine-card">
                       <div class="machine-info">
                         <span class="machine-name">{m.name}</span>
@@ -299,7 +269,7 @@
             </div>
 
             <!-- Download all bar -->
-            {#if machines.length > 0}
+            {#if cloudSync.machines.length > 0}
               <div class="download-all-bar">
                 <button
                   class="download-all-btn"
