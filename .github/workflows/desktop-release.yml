@@ -129,7 +129,7 @@ jobs:
         run: |
           if [ "${{ steps.apple_signing.outputs.available }}" = "false" ]; then
             npx tauri build --target "$AGENTSVIEW_TARGET_TRIPLE" \
-              --config '{"bundle":{"createUpdaterArtifacts":false}}'
+              --config '{"bundle":{"createUpdaterArtifacts":false,"macOS":{"signingIdentity":null}}}'
           else
             npx tauri build --target "$AGENTSVIEW_TARGET_TRIPLE"
           fi
