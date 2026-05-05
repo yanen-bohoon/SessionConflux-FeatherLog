@@ -297,7 +297,7 @@ func runSetup(cmd *cobra.Command, args []string) {
 	if err := writeAgentsviewConfig(port); err != nil {
 		fmt.Printf("   WARN: could not write agentsview config: %v\n", err)
 	} else {
-		fmt.Printf("AgentsView port %d saved to ~/.agentsview/config.toml\n", port)
+		fmt.Printf("AgentsView port %d saved to ~/.session-conflux/config.toml\n", port)
 	}
 
 	if err := config.Save(cfg); err != nil {
@@ -479,7 +479,7 @@ func writeAgentsviewConfig(port int) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(home, ".agentsview")
+	dir := filepath.Join(home, ".session-conflux")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}

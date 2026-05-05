@@ -172,8 +172,6 @@ Web 端顶栏"云同步"按钮提供可视化上传/下载/状态查看，设置
 ```toml
 [sync]
 enabled = true
-```
-
 schedule = "02:00"
 direction = "both"
 compression_level = 3
