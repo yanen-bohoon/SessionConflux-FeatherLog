@@ -14,42 +14,6 @@ import (
 	confluxtransport "github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
 
-// remoteCache caches listCloudMachines results with a TTL.
-type remoteCache struct {
-	mu       sync.Mutex
-	machines []cloudMachineInfo
-	expiry   time.Time
-}
-
-var remoteMachineCache remoteCache
-
-const remoteCacheTTL = 30 * time.Second
-
-func (c *remoteCache) get() ([]cloudMachineInfo, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if time.Now().Before(c.expiry) {
-		return c.machines, true
-	}
-	return nil, false
-}
-
-func (c *remoteCache) set(machines []cloudMachineInfo) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.machines = machines
-	c.expiry = time.Now().Add(remoteCacheTTL)
-}
-
-// InvalidateRemoteCache clears the cached remote machine list so the
-// next /remote request re-lists from the transport. Call after upload,
-// download, or delete operations that change remote state.
-func InvalidateRemoteCache() {
-	remoteMachineCache.mu.Lock()
-	defer remoteMachineCache.mu.Unlock()
-	remoteMachineCache.expiry = time.Time{}
-}
-
 // beginCloudSyncStream handles the shared SSE preamble for cloud sync
 // handlers: ReadOnly guard, SSE stream creation, and transport setup.
 // On transport error, logs and sends an SSE error event.
@@ -84,74 +48,70 @@ func sendCloudSyncProgress(stream *SSEStream, phase string, current, total int, 
 	})
 }
 
-// Types for listing remote machine data.
-type cloudIncrementalInfo struct {
-	Agent string `json:"agent"`
-	Count int    `json:"count"`
-}
-type cloudBaselineInfo struct {
-	Files int   `json:"files"`
-	Size  int64 `json:"size"`
-}
+// cloudMachineInfo holds summary info for one remote machine.
 type cloudMachineInfo struct {
-	Name        string                 `json:"name"`
-	Baseline    *cloudBaselineInfo     `json:"baseline,omitempty"`
-	Incremental []cloudIncrementalInfo `json:"incremental,omitempty"`
+	Name           string `json:"name"`
+	HasBaseline    bool   `json:"has_baseline"`
+	HasIncremental bool   `json:"has_incremental"`
 }
 
-// listCloudMachines enumerates remote machines and their baseline/incremental data.
+// listCloudMachines enumerates remote machines concurrently, checking only
+// whether baseline/incremental directories exist (2 levels deep instead of 4).
 func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
-	var machines []cloudMachineInfo
-
 	hosts, err := tr.ListFiles("")
 	if err != nil {
-		return machines
+		return nil
 	}
+
+	type result struct {
+		name           string
+		hasBaseline    bool
+		hasIncremental bool
+	}
+
+	var wg sync.WaitGroup
+	ch := make(chan result, len(hosts))
+
 	for _, host := range hosts {
 		if !host.IsDir {
 			continue
 		}
-		m := cloudMachineInfo{Name: host.Name}
+		wg.Add(1)
+		go func(h confluxtransport.FileInfo) {
+			defer wg.Done()
+			r := result{name: h.Name}
+			entries, err := tr.ListFiles(h.Name)
+			if err != nil {
+				ch <- r
+				return
+			}
+			for _, e := range entries {
+				if !e.IsDir {
+					continue
+				}
+				switch e.Name {
+				case "baseline":
+					r.hasBaseline = true
+				case "incremental":
+					r.hasIncremental = true
+				}
+			}
+			ch <- r
+		}(host)
+	}
 
-		l3Files, err := tr.ListFiles(host.Name)
-		if err != nil {
-			machines = append(machines, m)
-			continue
-		}
-		for _, l3 := range l3Files {
-			if !l3.IsDir {
-				continue
-			}
-			switch l3.Name {
-			case "baseline":
-				parts, err := tr.ListFiles(host.Name + "/baseline")
-				if err == nil {
-					var totalSize int64
-					for _, p := range parts {
-						totalSize += p.Size
-					}
-					if len(parts) > 0 {
-						m.Baseline = &cloudBaselineInfo{Files: len(parts), Size: totalSize}
-					}
-				}
-			case "incremental":
-				agents, err := tr.ListFiles(host.Name + "/incremental")
-				if err == nil {
-					for _, a := range agents {
-						if !a.IsDir {
-							continue
-						}
-						sessions, err := tr.ListFiles(host.Name + "/incremental/" + a.Name)
-						count := 0
-						if err == nil {
-							count = len(sessions)
-						}
-						m.Incremental = append(m.Incremental, cloudIncrementalInfo{Agent: a.Name, Count: count})
-					}
-				}
-			}
-		}
-		machines = append(machines, m)
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var machines []cloudMachineInfo
+	for r := range ch {
+		machines = append(machines, cloudMachineInfo{
+			Name:           r.name,
+			HasBaseline:    r.hasBaseline,
+			HasIncremental: r.hasIncremental,
+		})
 	}
 	return machines
 }
@@ -196,7 +156,6 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 		log.Printf("cloud sync save state: %v", err)
 	}
 
-	InvalidateRemoteCache()
 	stream.SendJSON("done", stats)
 }
 
@@ -245,7 +204,6 @@ func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request)
 		log.Printf("cloud sync save state: %v", err)
 	}
 
-	InvalidateRemoteCache()
 	stream.SendJSON("done", stats)
 }
 
@@ -352,34 +310,63 @@ func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	InvalidateRemoteCache()
 	stream.SendJSON("done", map[string]any{
 		"hostname": hostname,
 		"deleted":  total,
 	})
 }
 
-// handleSyncCloudRemote lists remote machines and their data without
-// verifying the connection first (assumes config is already saved/tested).
-// Results are cached for remoteCacheTTL to avoid repeated slow Feishu API calls.
+// handleSyncCloudRemote streams remote machines via SSE as they are discovered.
 func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
-	if cached, ok := remoteMachineCache.get(); ok {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"machines": cached,
-		})
+	stream, err := NewSSEStream(w)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
 		return
 	}
 
 	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
 	tr, err := confluxtransport.New(scCfg)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "transport: "+err.Error())
+		stream.SendJSON("error", map[string]string{"message": err.Error()})
 		return
 	}
 
-	machines := listCloudMachines(tr)
-	remoteMachineCache.set(machines)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"machines": machines,
-	})
+	hosts, err := tr.ListFiles("")
+	if err != nil {
+		stream.SendJSON("error", map[string]string{"message": err.Error()})
+		return
+	}
+
+	stream.SendJSON("phase", map[string]string{"phase": "listing"})
+
+	var machines []cloudMachineInfo
+	for _, host := range hosts {
+		if !host.IsDir {
+			continue
+		}
+
+		stream.SendJSON("phase", map[string]string{"phase": "scanning", "detail": host.Name})
+
+		m := cloudMachineInfo{Name: host.Name}
+		entries, err := tr.ListFiles(host.Name)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir {
+				continue
+			}
+			switch e.Name {
+			case "baseline":
+				m.HasBaseline = true
+			case "incremental":
+				m.HasIncremental = true
+			}
+		}
+
+		machines = append(machines, m)
+		stream.SendJSON("machine", m)
+	}
+
+	stream.SendJSON("done", map[string]any{"machines": machines})
 }
