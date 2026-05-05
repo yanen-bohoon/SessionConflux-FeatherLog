@@ -275,7 +275,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/sync-cloud/upload", s.handleSyncCloudUpload)
 	s.mux.HandleFunc("POST /api/v1/sync-cloud/download", s.handleSyncCloudDownload)
 	s.mux.Handle("GET /api/v1/sync-cloud/status", s.withTimeout(s.handleSyncCloudStatus))
-	s.mux.Handle("POST /api/v1/sync-cloud/test", s.withTimeout(s.handleSyncCloudTest))
+	s.mux.HandleFunc("POST /api/v1/sync-cloud/test", s.handleSyncCloudTest)
+	s.mux.HandleFunc("GET /api/v1/sync-cloud/remote", s.handleSyncCloudRemote)
+	s.mux.HandleFunc("DELETE /api/v1/sync-cloud/remote/{hostname}", s.handleSyncCloudDeleteRemote)
 
 	s.mux.Handle("GET /api/v1/starred", s.withTimeout(s.handleListStarred))
 	s.mux.Handle("PUT /api/v1/sessions/{id}/star", s.withTimeout(s.handleStarSession))

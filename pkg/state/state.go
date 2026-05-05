@@ -114,6 +114,16 @@ func (s *Store) All() map[string]Entry {
 	return s.entries
 }
 
+// RemoveAll deletes all entries whose key starts with prefix (typically
+// a hostname followed by "/").
+func (s *Store) RemoveAll(prefix string) {
+	for k := range s.entries {
+		if len(k) > len(prefix) && k[:len(prefix)+1] == prefix+"/" {
+			delete(s.entries, k)
+		}
+	}
+}
+
 // Save writes the state to disk.
 func (s *Store) Save() error {
 	dir := filepath.Dir(s.path)

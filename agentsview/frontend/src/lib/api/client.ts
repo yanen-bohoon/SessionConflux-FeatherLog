@@ -39,6 +39,8 @@ import type {
   TopUsageSessionsResponse,
   UsageParams,
   UsageTopSessionsParams,
+  CloudSyncRemoteResponse,
+  CloudSyncMachine,
 } from "./types.js";
 import type { SessionActivityResponse } from "./types/session-activity.js";
 import type { SessionTiming } from "./types/timing.js";
@@ -836,6 +838,7 @@ export interface CloudSyncTestResult {
 
 export type CloudSyncEvent =
   | { type: "started"; operation: string }
+  | { type: "progress"; phase: string; current: number; total: number; detail: string }
   | { type: "done"; stats: CloudSyncStats }
   | { type: "error"; message: string };
 
@@ -877,6 +880,15 @@ function readCloudSyncSSE(
           case "started":
             onEvent?.({ type: "started", operation: parsed.operation });
             break;
+          case "progress":
+            onEvent?.({
+              type: "progress",
+              phase: parsed.phase,
+              current: parsed.current,
+              total: parsed.total,
+              detail: parsed.detail,
+            });
+            break;
           case "done":
             onEvent?.({ type: "done", stats: parsed as CloudSyncStats });
             if (!reader.closed) reader.cancel();
@@ -902,6 +914,10 @@ function readCloudSyncSSE(
 
 export function getCloudSyncStatus(): Promise<CloudSyncStatus> {
   return fetchJSON("/sync-cloud/status");
+}
+
+export function getCloudSyncRemote(): Promise<CloudSyncRemoteResponse> {
+  return fetchJSON("/sync-cloud/remote");
 }
 
 export async function testCloudSyncConnection(): Promise<CloudSyncTestResult> {
@@ -942,7 +958,11 @@ export function uploadCloudSync(
 
 export function downloadCloudSync(
   onEvent?: (ev: CloudSyncEvent) => void,
+  hostname?: string,
 ): CloudSyncStream {
+  const url = hostname
+    ? `/sync-cloud/download?hostname=${encodeURIComponent(hostname)}`
+    : "/sync-cloud/download";
   const init = authHeaders({
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -951,13 +971,40 @@ export function downloadCloudSync(
   const headers = new Headers(init.headers);
   headers.set("Accept", "text/event-stream");
   const ctrl = new AbortController();
-  const res = fetch(`${getBase()}/sync-cloud/download`, {
+  const res = fetch(`${getBase()}${url}`, {
     ...init,
     headers,
     signal: ctrl.signal,
   });
   const stream = res.then((r) => {
     if (!r.ok) throw new Error(`Download failed (${r.status})`);
+    return readCloudSyncSSE(r, onEvent);
+  });
+  return {
+    abort() {
+      ctrl.abort();
+    },
+    done: stream.then((s) => s.done),
+  };
+}
+
+export function deleteCloudSyncRemote(
+  hostname: string,
+  onEvent?: (ev: CloudSyncEvent) => void,
+): CloudSyncStream {
+  const init = authHeaders({
+    method: "DELETE",
+  });
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "text/event-stream");
+  const ctrl = new AbortController();
+  const res = fetch(`${getBase()}/sync-cloud/remote/${encodeURIComponent(hostname)}`, {
+    ...init,
+    headers,
+    signal: ctrl.signal,
+  });
+  const stream = res.then((r) => {
+    if (!r.ok) throw new Error(`Delete failed (${r.status})`);
     return readCloudSyncSSE(r, onEvent);
   });
   return {
