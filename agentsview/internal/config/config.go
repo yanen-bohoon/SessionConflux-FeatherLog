@@ -81,37 +81,16 @@ type CustomModelRate struct {
 	CacheRead     float64 `json:"cache_read,omitempty" toml:"cache_read"`
 }
 
-// SyncFeishuConfig holds Feishu Drive credentials for cloud sync.
-type SyncFeishuConfig struct {
-	AppID       string `toml:"app_id" json:"app_id"`
-	AppSecret   string `toml:"app_secret" json:"app_secret"`
-	FolderToken string `toml:"folder_token,omitempty" json:"folder_token"`
-}
-
-// SyncSSHConfig holds SSH/SFTP connection details for cloud sync.
-type SyncSSHConfig struct {
-	Host       string `toml:"host" json:"host"`
-	Port       int    `toml:"port" json:"port"`
-	User       string `toml:"user" json:"user"`
-	KeyFile    string `toml:"key_file" json:"key_file"`
-	RemotePath string `toml:"remote_path" json:"remote_path"`
-}
-
-// SyncTransportConfig selects the cloud sync backend.
-type SyncTransportConfig struct {
-	Backend string           `toml:"backend" json:"backend"` // "feishu" or "ssh"
-	Feishu  SyncFeishuConfig `toml:"feishu" json:"feishu,omitempty"`
-	SSH     SyncSSHConfig    `toml:"ssh" json:"ssh,omitempty"`
-}
-
 // SyncConfig controls cross-machine session sync (SessionConflux).
+// Transport uses the root module's TransportConfig directly, avoiding
+// duplicate type definitions.
 type SyncConfig struct {
-	Enabled          bool                `toml:"enabled" json:"enabled"`
-	Schedule         string              `toml:"schedule" json:"schedule"`
-	Direction        string              `toml:"direction" json:"direction"` // "both" | "upload" | "download"
-	Transport        SyncTransportConfig `toml:"transport" json:"transport"`
-	ExcludeAgents    []string            `toml:"exclude_agents" json:"exclude_agents,omitempty"`
-	CompressionLevel int                 `toml:"compression_level" json:"compression_level"`
+	Enabled          bool                    `toml:"enabled" json:"enabled"`
+	Schedule         string                  `toml:"schedule" json:"schedule"`
+	Direction        string                  `toml:"direction" json:"direction"` // "both" | "upload" | "download"
+	Transport        scconfig.TransportConfig `toml:"transport" json:"transport"`
+	ExcludeAgents    []string                `toml:"exclude_agents" json:"exclude_agents,omitempty"`
+	CompressionLevel int                     `toml:"compression_level" json:"compression_level"`
 }
 
 // Config holds all application configuration.
@@ -234,7 +213,7 @@ func Default() (Config, error) {
 			Schedule:         "02:00",
 			Direction:        "both",
 			CompressionLevel: 3,
-			Transport: SyncTransportConfig{
+			Transport: scconfig.TransportConfig{
 				Backend: "feishu",
 			},
 		},
@@ -433,14 +412,14 @@ func (c *Config) migrateSessionConfluxConfig() error {
 			Direction:        oldCfg.Sync.Direction,
 			CompressionLevel: oldCfg.Compression.Level,
 			ExcludeAgents:    oldCfg.Agents.Exclude,
-			Transport: SyncTransportConfig{
+			Transport: scconfig.TransportConfig{
 				Backend: oldCfg.Transport.Backend,
-				Feishu: SyncFeishuConfig{
+				Feishu: scconfig.FeishuConfig{
 					AppID:       oldCfg.Transport.Feishu.AppID,
 					AppSecret:   oldCfg.Transport.Feishu.AppSecret,
 					FolderToken: oldCfg.Transport.Feishu.FolderToken,
 				},
-				SSH: SyncSSHConfig{
+				SSH: scconfig.SSHConfig{
 					Host:       oldCfg.Transport.SSH.Host,
 					Port:       oldCfg.Transport.SSH.Port,
 					User:       oldCfg.Transport.SSH.User,

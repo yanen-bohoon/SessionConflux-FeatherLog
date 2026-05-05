@@ -14,23 +14,10 @@ import (
 )
 
 // ToSessionConfluxConfig maps an agentsview SyncConfig to a session-conflux Config.
+// Transport types are unified, so the transport field copies directly.
 func ToSessionConfluxConfig(sc *config.SyncConfig) *scconfig.Config {
 	return &scconfig.Config{
-		Transport: scconfig.TransportConfig{
-			Backend: sc.Transport.Backend,
-			Feishu: scconfig.FeishuConfig{
-				AppID:       sc.Transport.Feishu.AppID,
-				AppSecret:   sc.Transport.Feishu.AppSecret,
-				FolderToken: sc.Transport.Feishu.FolderToken,
-			},
-			SSH: scconfig.SSHConfig{
-				Host:       sc.Transport.SSH.Host,
-				Port:       sc.Transport.SSH.Port,
-				User:       sc.Transport.SSH.User,
-				KeyFile:    sc.Transport.SSH.KeyFile,
-				RemotePath: sc.Transport.SSH.RemotePath,
-			},
-		},
+		Transport: sc.Transport,
 		Sync: scconfig.SyncConfig{
 			Schedule:  sc.Schedule,
 			Direction: sc.Direction,
