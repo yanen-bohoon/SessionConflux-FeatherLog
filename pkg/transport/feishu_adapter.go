@@ -9,6 +9,11 @@ import (
 	"github.com/yanen-bohoon/session-conflux/pkg/feishu"
 )
 
+// feishuMaxChunkSize is the maximum file size (in bytes) that can be
+// uploaded to Feishu Drive in a single request. Files larger than this
+// are split into parts by the sync layer.
+const feishuMaxChunkSize = 19 * 1024 * 1024
+
 // FeishuTransport implements Transport backed by Feishu Drive.
 // It wraps feishu.Client and maintains a path-to-folder-token cache
 // so that higher layers can use path-based addressing.
@@ -40,6 +45,9 @@ func NewFeishuTransportWithClient(client *feishu.Client, rootToken string) *Feis
 }
 
 func (ft *FeishuTransport) Name() string { return "feishu" }
+
+// MaxChunkSize returns the Feishu Drive upload limit (20 MB minus headroom).
+func (ft *FeishuTransport) MaxChunkSize() int64 { return feishuMaxChunkSize }
 
 // RootToken returns the token of the root SessionConflux folder.
 // Empty until CreateFolder("") or resolveToken("") is called.

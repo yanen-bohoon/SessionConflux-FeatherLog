@@ -59,6 +59,9 @@ func NewSSHTransport(cfg config.SSHConfig) (*SSHTransport, error) {
 
 func (t *SSHTransport) Name() string { return "ssh" }
 
+// MaxChunkSize returns 0 — SSH/SFTP has no upload size limit.
+func (t *SSHTransport) MaxChunkSize() int64 { return 0 }
+
 // Verify checks that the SSH connection is still alive.
 func (t *SSHTransport) Verify() error {
 	if t.sftpClient == nil || t.sshClient == nil {

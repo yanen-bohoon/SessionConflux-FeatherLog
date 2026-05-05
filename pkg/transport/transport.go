@@ -39,6 +39,13 @@ type Transport interface {
 	// Name returns a short backend identifier: "feishu", "ssh", etc.
 	Name() string
 
+	// MaxChunkSize returns the maximum file size (in bytes) the backend
+	// can upload as a single file. Returns 0 if there is no limit
+	// and chunking is unnecessary. Backends with upload limits (e.g.
+	// Feishu Drive's 20 MB) return the limit so the sync layer can
+	// split large files accordingly.
+	MaxChunkSize() int64
+
 	// Verify checks that credentials and connectivity are valid.
 	// Used by setup wizards to validate user-provided credentials
 	// before saving the config.

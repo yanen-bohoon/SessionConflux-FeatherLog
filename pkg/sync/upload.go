@@ -14,10 +14,11 @@ import (
 	"github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
 
-const maxChunkSize = 19 * 1024 * 1024
-
 type UploadStats struct {
-	Total, Synced, Skipped, Failed int
+	Total   int `json:"total"`
+	Synced  int `json:"synced"`
+	Skipped int `json:"skipped"`
+	Failed  int `json:"failed"`
 }
 
 type SyncFile struct {
@@ -112,17 +113,18 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 		t.DeleteFile(baselinePath + "/" + f.Name)
 	}
 
-	if len(archive) <= maxChunkSize {
+	chunkSize := int(t.MaxChunkSize())
+	if chunkSize <= 0 || len(archive) <= chunkSize {
 		if err := t.UploadFile(baselinePath, bundle.BundleFileName, archive); err != nil {
 			return 0, fmt.Errorf("upload: %w", err)
 		}
 		fmt.Printf("  uploaded bundle.tar.zst\n")
 	} else {
-		parts := (len(archive) + maxChunkSize - 1) / maxChunkSize
+		parts := (len(archive) + chunkSize - 1) / chunkSize
 		fmt.Printf("  splitting into %d parts...\n", parts)
 		for i := 0; i < parts; i++ {
-			start := i * maxChunkSize
-			end := start + maxChunkSize
+			start := i * chunkSize
+			end := start + chunkSize
 			if end > len(archive) {
 				end = len(archive)
 			}
