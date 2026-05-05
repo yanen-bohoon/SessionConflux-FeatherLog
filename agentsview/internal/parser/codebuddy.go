@@ -150,7 +150,12 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 			if role == string(RoleUser) {
 				userMessageCount++
 				if firstMsg == "" {
-					firstMsg = cleanCodeBuddySummary(text)
+					cleaned := cleanCodeBuddySummary(text)
+					// Skip "empty" summaries (where the entire message was system noise)
+					// or specific technical command markers.
+					if cleaned != "" && !isSystemNoise(cleaned) {
+						firstMsg = cleaned
+					}
 				}
 			}
 
@@ -485,4 +490,20 @@ func cleanCodeBuddySummary(text string) string {
 	}
 
 	return truncate(strings.TrimSpace(text), 200)
+}
+
+func isSystemNoise(text string) bool {
+	// Common CodeBuddy technical commands or noise that shouldn't be the summary
+	noise := []string{
+		"/model",
+		"/compact",
+		"Caveat: The messages below were generated",
+		"Switch model to",
+	}
+	for _, n := range noise {
+		if strings.Contains(text, n) {
+			return true
+		}
+	}
+	return false
 }
