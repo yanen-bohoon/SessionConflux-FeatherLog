@@ -814,4 +814,6 @@ export const zh: Record<string, string> = {
   'modal.cloud_sync.download_all': '全部下载',
   'modal.cloud_sync.refresh': '刷新',
   'modal.cloud_sync.loading': '加载中...',
+  'modal.cloud_sync.scanning_machine': '正在扫描 {name}...',
+  'modal.cloud_sync.dismiss': '关闭',
 };

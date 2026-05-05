@@ -11,6 +11,8 @@ class CloudSyncStore {
   loadingMachines: boolean = $state(false);
   loadingStatus: boolean = $state(false);
   loaded: boolean = $state(false);
+  scanPhase: string = $state("");
+  scanDetail: string = $state("");
 
   async loadAll() {
     if (this.loaded) return;
@@ -33,13 +35,28 @@ class CloudSyncStore {
 
   async loadMachines() {
     this.loadingMachines = true;
+    this.machines = [];
+    this.scanPhase = "";
+    this.scanDetail = "";
     try {
-      const resp = await getCloudSyncRemote();
-      this.machines = resp.machines ?? [];
+      const stream = getCloudSyncRemote((ev) => {
+        switch (ev.type) {
+          case "phase":
+            this.scanPhase = ev.phase;
+            this.scanDetail = ev.detail ?? "";
+            break;
+          case "machine":
+            this.machines = [...this.machines, ev.machine];
+            break;
+        }
+      });
+      await stream.done;
     } catch {
-      this.machines = [];
+      // keep whatever machines arrived before the error
     } finally {
       this.loadingMachines = false;
+      this.scanPhase = "";
+      this.scanDetail = "";
     }
   }
 

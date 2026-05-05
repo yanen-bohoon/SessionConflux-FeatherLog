@@ -48,4 +48,11 @@ export interface CloudSyncStats {
 export interface CloudSyncTestResult {
   ok: boolean;
   message: string;
+  machines?: CloudSyncMachine[];
+}
+
+export interface CloudSyncMachine {
+  name: string;
+  has_baseline: boolean;
+  has_incremental: boolean;
 }

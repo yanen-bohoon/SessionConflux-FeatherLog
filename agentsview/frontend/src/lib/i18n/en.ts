@@ -810,4 +810,6 @@ export const en: Record<string, string> = {
   'modal.cloud_sync.download_all': 'Download all',
   'modal.cloud_sync.refresh': 'Refresh',
   'modal.cloud_sync.loading': 'Loading...',
+  'modal.cloud_sync.scanning_machine': 'Scanning {name}...',
+  'modal.cloud_sync.dismiss': 'Dismiss',
 };

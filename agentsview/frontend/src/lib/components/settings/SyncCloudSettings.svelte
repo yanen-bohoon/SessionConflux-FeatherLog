@@ -7,6 +7,8 @@
     testCloudSyncConnection,
     type CloudSyncConfig,
   } from "../../api/client.js";
+  import type { CloudSyncTestResult } from "../../api/types/sync-cloud.js";
+
 
   let enabled: boolean = $state(false);
   let schedule: string = $state("02:00");
@@ -30,7 +32,7 @@
   let testing: boolean = $state(false);
   let error: string | null = $state(null);
   let success: string | null = $state(null);
-  let testResult: string | null = $state(null);
+  let testResult: CloudSyncTestResult | null = $state(null);
 
   // Populate from loaded settings.
   $effect(() => {
@@ -108,10 +110,12 @@
       // continue anyway
     }
     try {
-      const result = await testCloudSyncConnection();
-      testResult = result.message;
+      testResult = await testCloudSyncConnection();
     } catch (e) {
-      testResult = e instanceof Error ? e.message : t("settings.sync_cloud.test_failed");
+      testResult = {
+        ok: false,
+        message: e instanceof Error ? e.message : t("settings.sync_cloud.test_failed"),
+      };
     } finally {
       testing = false;
     }
@@ -227,7 +231,28 @@
   </div>
 
   {#if testResult}
-    <p class="msg test-msg">{testResult}</p>
+    <div class="test-result">
+      <p class="msg {testResult.ok ? 'success' : 'error'}">{testResult.message}</p>
+      {#if testResult.ok && testResult.machines && testResult.machines.length > 0}
+        <div class="machines-tree">
+          <p class="tree-title">{t("settings.sync_cloud.remote_machines")}</p>
+          {#each testResult.machines as m}
+            <div class="machine-node">
+              <span class="machine-icon">&#x1f5b4;</span>
+              <span class="machine-name">{m.name}</span>
+              {#if m.has_baseline}
+                <span class="tag baseline-tag">baseline</span>
+              {/if}
+              {#if m.has_incremental}
+                <span class="tag incr-tag">incremental</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else if testResult.ok && (!testResult.machines || testResult.machines.length === 0)}
+        <p class="tree-empty">{t("settings.sync_cloud.no_machines")}</p>
+      {/if}
+    </div>
   {/if}
   {#if error}
     <p class="msg error">{error}</p>
@@ -371,7 +396,54 @@
   .msg.success {
     color: var(--accent-green, #22c55e);
   }
-  .msg.test-msg {
+
+  .test-result {
+    margin-top: 8px;
+  }
+  .machines-tree {
+    margin-top: 8px;
+    padding-left: 98px;
+  }
+  .tree-title {
+    font-size: 11px;
+    font-weight: 500;
     color: var(--text-secondary);
+    margin: 0 0 6px;
+  }
+  .tree-empty {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-left: 98px;
+    margin: 4px 0 0;
+  }
+  .machine-node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  .machine-icon {
+    font-size: 14px;
+  }
+  .machine-name {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--bg-hover, rgba(128, 128, 128, 0.12));
+    color: var(--text-muted);
+  }
+  .baseline-tag {
+    background: rgba(74, 158, 255, 0.12);
+    color: var(--accent-blue, #4a9eff);
+  }
+  .incr-tag {
+    background: rgba(34, 197, 94, 0.10);
+    color: var(--accent-green, #22c55e);
   }
 </style>

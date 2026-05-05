@@ -39,7 +39,6 @@ import type {
   TopUsageSessionsResponse,
   UsageParams,
   UsageTopSessionsParams,
-  CloudSyncRemoteResponse,
   CloudSyncMachine,
 } from "./types.js";
 import type { SessionActivityResponse } from "./types/session-activity.js";
@@ -889,8 +888,59 @@ export function getCloudSyncStatus(): Promise<CloudSyncStatus> {
   return fetchJSON("/sync-cloud/status");
 }
 
-export function getCloudSyncRemote(): Promise<CloudSyncRemoteResponse> {
-  return fetchJSON("/sync-cloud/remote");
+export type CloudSyncRemoteEvent =
+  | { type: "phase"; phase: string; detail?: string }
+  | { type: "machine"; machine: CloudSyncMachine }
+  | { type: "done"; machines: CloudSyncMachine[] }
+  | { type: "error"; message: string };
+
+export interface CloudSyncRemoteStream {
+  abort: () => void;
+  done: Promise<CloudSyncMachine[]>;
+}
+
+export function getCloudSyncRemote(
+  onEvent?: (ev: CloudSyncRemoteEvent) => void,
+): CloudSyncRemoteStream {
+  const ctrl = new AbortController();
+  const req = authHeaders({ method: "GET" });
+  const headers = new Headers(req.headers);
+  headers.set("Accept", "text/event-stream");
+
+  const done = fetch(`${getBase()}/sync-cloud/remote`, {
+    ...req,
+    headers,
+    signal: ctrl.signal,
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`GET /sync-cloud/remote failed (${res.status})`);
+    return readSSEStream(res.body!.getReader(), (event, data) => {
+      const parsed = JSON.parse(data);
+      switch (event) {
+        case "phase":
+          onEvent?.({ type: "phase", phase: parsed.phase, detail: parsed.detail });
+          return undefined;
+        case "machine": {
+          const m = parsed as CloudSyncMachine;
+          onEvent?.({ type: "machine", machine: m });
+          return undefined;
+        }
+        case "done":
+          onEvent?.({ type: "done", machines: parsed.machines as CloudSyncMachine[] });
+          return parsed.machines as CloudSyncMachine[];
+        case "error":
+          onEvent?.({ type: "error", message: parsed.message });
+          throw new Error(parsed.message);
+      }
+      return undefined;
+    });
+  });
+
+  return {
+    abort() {
+      ctrl.abort();
+    },
+    done,
+  };
 }
 
 export async function testCloudSyncConnection(): Promise<CloudSyncTestResult> {

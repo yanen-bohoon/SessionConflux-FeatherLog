@@ -21,9 +21,8 @@
     onsynced,
   }: Props = $props();
 
-  type View = "explorer" | "running" | "done" | "error";
-
-  let view: View = $state("explorer");
+  let running: boolean = $state(false);
+  let result: { message: string; isError: boolean } | null = $state(null);
   let errorMessage: string = $state("");
   let stats: CloudSyncStats | null = $state(null);
   let operation: string = $state("");
@@ -53,82 +52,78 @@
         break;
       case "done":
         cloudSync.refresh();
+        stats = ev.stats;
+        running = false;
+        abortFn = null;
         if (deletingHost) {
           deletingHost = "";
           confirmDelete = "";
-          view = "explorer";
-        } else {
-          stats = ev.stats;
-          view = "done";
+          result = { message: t("modal.cloud_sync.done"), isError: false };
+        } else if (downloadingHost) {
           downloadingHost = "";
+          result = { message: t("modal.cloud_sync.done"), isError: false };
+          onsynced();
+        } else {
+          result = { message: t("modal.cloud_sync.done"), isError: false };
           onsynced();
         }
         break;
       case "error":
         errorMessage = ev.message;
-        view = "error";
+        running = false;
+        abortFn = null;
+        result = { message: ev.message, isError: true };
         downloadingHost = "";
         deletingHost = "";
         break;
     }
   }
 
-  async function handleUpload() {
-    view = "running";
+  async function startOperation(fn: () => Promise<void>) {
+    running = true;
+    result = null;
     errorMessage = "";
     stats = null;
-    const stream = uploadCloudSync(handleEvent);
-    abortFn = () => stream.abort();
     try {
-      await stream.done;
+      await fn();
     } catch {
-      if (view === "running") {
-        errorMessage = t("modal.cloud_sync.failed");
-        view = "error";
+      if (running) {
+        running = false;
+        abortFn = null;
+        result = { message: errorMessage || t("modal.cloud_sync.failed"), isError: true };
       }
     }
-    abortFn = null;
   }
 
-  async function handleDownload(hostname?: string) {
-    view = "running";
-    downloadingHost = hostname ?? "";
-    errorMessage = "";
-    stats = null;
-    const stream = downloadCloudSync(handleEvent, hostname);
-    abortFn = () => stream.abort();
-    try {
+  function handleUpload() {
+    startOperation(async () => {
+      const stream = uploadCloudSync(handleEvent);
+      abortFn = () => stream.abort();
       await stream.done;
-    } catch {
-      if (view === "running") {
-        errorMessage = t("modal.cloud_sync.failed");
-        view = "error";
-      }
-    }
-    abortFn = null;
+    });
   }
 
-  async function handleDelete(hostname: string) {
-    view = "running";
-    deletingHost = hostname;
-    errorMessage = "";
-    stats = null;
-    const stream = deleteCloudSyncRemote(hostname, handleEvent);
-    abortFn = () => stream.abort();
-    try {
+  function handleDownload(hostname?: string) {
+    startOperation(async () => {
+      downloadingHost = hostname ?? "";
+      const stream = downloadCloudSync(handleEvent, hostname);
+      abortFn = () => stream.abort();
       await stream.done;
-    } catch {
-      if (view === "running") {
-        errorMessage = t("modal.cloud_sync.failed");
-        view = "error";
-      }
-    }
-    abortFn = null;
+    });
+  }
+
+  function handleDelete(hostname: string) {
+    startOperation(async () => {
+      deletingHost = hostname;
+      const stream = deleteCloudSyncRemote(hostname, handleEvent);
+      abortFn = () => stream.abort();
+      await stream.done;
+    });
   }
 
   function handleClose() {
-    if (view === "running") return;
-    view = "explorer";
+    if (running) return;
+    result = null;
     errorMessage = "";
     stats = null;
     downloadingHost = "";
@@ -138,15 +133,23 @@
     onclose();
   }
 
-  // Reset view when modal opens.
+  function dismissResult() {
+    result = null;
+    stats = null;
+    errorMessage = "";
+  }
+
+  // Reset state when modal opens.
   $effect(() => {
     if (open) {
-      view = "explorer";
+      running = false;
+      result = null;
       errorMessage = "";
       stats = null;
       downloadingHost = "";
       deletingHost = "";
       confirmDelete = "";
+      abortFn = null;
     }
   });
 
@@ -154,12 +157,6 @@
     if ((e.target as HTMLElement).classList.contains("modal-overlay")) {
       handleClose();
     }
-  }
-
-  function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 </script>
 
@@ -173,144 +170,148 @@
     <div class="modal-panel cloud-sync-panel" role="dialog" aria-modal="true" aria-label={t("nav.cloud_sync")}>
       <div class="modal-header">
         <h3>{t("nav.cloud_sync")}</h3>
-        <button class="close-btn" onclick={handleClose} aria-label={t("modal.close")}>
+        <button class="close-btn" onclick={handleClose} disabled={running} aria-label={t("modal.close")}>
           &times;
         </button>
       </div>
 
       <div class="modal-body">
-        {#if view === "explorer"}
-          <div class="explorer-view">
-            <!-- Local machine section -->
-            <div class="local-section">
-              <div class="section-header">
-                <span class="section-title">{t("modal.cloud_sync.local_machine")}</span>
+        <!-- Local machine section -->
+        <div class="local-section">
+          <div class="section-header">
+            <span class="section-title">{t("modal.cloud_sync.local_machine")}</span>
+          </div>
+          <div class="local-card">
+            {#if cloudSync.status}
+              <div class="local-stats">
+                <span class="local-stat">{t("modal.cloud_sync.entries")}: <strong>{cloudSync.status.entries}</strong></span>
+                <span class="local-stat">{t("modal.cloud_sync.uploaded")}: <strong>{cloudSync.status.uploaded_count}</strong></span>
+                <span class="local-stat">{t("modal.cloud_sync.downloaded")}: <strong>{cloudSync.status.downloaded_count}</strong></span>
               </div>
-              <div class="local-card">
-                {#if cloudSync.status}
-                  <div class="local-stats">
-                    <span class="local-stat">{t("modal.cloud_sync.entries")}: <strong>{cloudSync.status.entries}</strong></span>
-                    <span class="local-stat">{t("modal.cloud_sync.uploaded")}: <strong>{cloudSync.status.uploaded_count}</strong></span>
-                    <span class="local-stat">{t("modal.cloud_sync.downloaded")}: <strong>{cloudSync.status.downloaded_count}</strong></span>
-                  </div>
-                {:else}
-                  <p class="empty-hint">{t("modal.cloud_sync.empty")}</p>
-                {/if}
-                <button class="upload-btn" onclick={handleUpload}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 0a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 8.293V.5A.5.5 0 018 0z"/>
-                    <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
-                  </svg>
-                  {t("modal.cloud_sync.upload")}
-                </button>
-              </div>
-            </div>
-
-            <!-- Remote machines section -->
-            <div class="remote-section">
-              <div class="section-header">
-                <span class="section-title">{t("modal.cloud_sync.remote_machines")}</span>
-                <button class="refresh-btn" onclick={() => cloudSync.loadMachines()} disabled={cloudSync.loadingMachines} aria-label={t("modal.cloud_sync.refresh")}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" class:spin={cloudSync.loadingMachines}>
-                    <path d="M11.534 7.5A3.5 3.5 0 008 4.5 3.5 3.5 0 004.5 8a.5.5 0 01-1 0A4.5 4.5 0 018 3.5a4.5 4.5 0 014.465 4h1.881a.25.25 0 01.192.41l-2.692 3.536a.25.25 0 01-.384 0L8.77 7.91a.25.25 0 01.192-.41H11.534z"/>
-                    <path fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM.5 8a7.5 7.5 0 1115 0A7.5 7.5 0 01.5 8z"/>
-                  </svg>
-                </button>
-              </div>
-
-              {#if cloudSync.loadingMachines}
-                <p class="loading-hint">{t("modal.cloud_sync.loading")}</p>
-              {:else if cloudSync.machines.length === 0}
-                <p class="empty-hint">{t("modal.cloud_sync.no_remote")}</p>
-              {:else}
-                <div class="machine-list">
-                  {#each cloudSync.machines as m}
-                    <div class="machine-card">
-                      <div class="machine-info">
-                        <span class="machine-name">{m.name}</span>
-                        <div class="machine-tags">
-                          {#if m.baseline}
-                            <span class="tag baseline-tag">
-                              baseline: {m.baseline.files} files, {formatBytes(m.baseline.size)}
-                            </span>
-                          {/if}
-                          {#if m.incremental}
-                            {#each m.incremental as inc}
-                              <span class="tag inc-tag">{inc.agent}: {inc.count}</span>
-                            {/each}
-                          {/if}
-                        </div>
-                      </div>
-                      <div class="machine-actions">
-                        <button
-                          class="machine-download-btn"
-                          onclick={() => handleDownload(m.name)}
-                          disabled={view === "running"}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 2a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 10.293V2.5A.5.5 0 018 2z"/>
-                            <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
-                          </svg>
-                          {t("modal.cloud_sync.download")}
-                        </button>
-                        <button
-                          class="machine-delete-btn"
-                          onclick={() => confirmDelete = m.name}
-                          disabled={view === "running"}
-                          title={t("modal.cloud_sync.delete_machine")}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-
-            <!-- Download all bar -->
-            {#if cloudSync.machines.length > 0}
-              <div class="download-all-bar">
-                <button
-                  class="download-all-btn"
-                  onclick={() => handleDownload()}
-                  disabled={view === "running"}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 2a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 10.293V2.5A.5.5 0 018 2z"/>
-                    <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
-                  </svg>
-                  {t("modal.cloud_sync.download_all")}
-                </button>
-              </div>
+            {:else}
+              <p class="empty-hint">{t("modal.cloud_sync.empty")}</p>
             {/if}
+            <button class="upload-btn" onclick={handleUpload} disabled={running}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 0a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 8.293V.5A.5.5 0 018 0z"/>
+                <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
+              </svg>
+              {t("modal.cloud_sync.upload")}
+            </button>
+          </div>
+        </div>
 
-            <!-- Delete confirmation prompt -->
-            {#if confirmDelete}
-              <div class="confirm-overlay">
-                <div class="confirm-box">
-                  <p class="confirm-text">{t("modal.cloud_sync.delete_confirm", { name: confirmDelete })}</p>
-                  <div class="confirm-actions">
-                    <button class="confirm-cancel-btn" onclick={() => confirmDelete = ""}>
-                      {t("modal.cancel")}
-                    </button>
-                    <button class="confirm-delete-btn" onclick={() => handleDelete(confirmDelete)}>
-                      {t("modal.cloud_sync.delete_machine")}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            {/if}
+        <!-- Remote machines section -->
+        <div class="remote-section">
+          <div class="section-header">
+            <span class="section-title">{t("modal.cloud_sync.remote_machines")}</span>
+            <button class="refresh-btn" onclick={() => cloudSync.loadMachines()} disabled={cloudSync.loadingMachines || running} aria-label={t("modal.cloud_sync.refresh")}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" class:spin={cloudSync.loadingMachines}>
+                <path d="M11.534 7.5A3.5 3.5 0 008 4.5 3.5 3.5 0 004.5 8a.5.5 0 01-1 0A4.5 4.5 0 018 3.5a4.5 4.5 0 014.465 4h1.881a.25.25 0 01.192.41l-2.692 3.536a.25.25 0 01-.384 0L8.77 7.91a.25.25 0 01.192-.41H11.534z"/>
+                <path fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM.5 8a7.5 7.5 0 1115 0A7.5 7.5 0 01.5 8z"/>
+              </svg>
+            </button>
           </div>
 
-        {:else if view === "running"}
-          <div class="running-state">
-            <div class="spinner"></div>
-            <p class="phase-label">
-              {progressPhase
-                ? t("modal.cloud_sync.phase_" + progressPhase, progressPhase)
-                : t("modal.cloud_sync.syncing")}
+          {#if cloudSync.loadingMachines}
+            <p class="loading-hint">
+              {#if cloudSync.scanPhase === "scanning" && cloudSync.scanDetail}
+                {t("modal.cloud_sync.scanning_machine", { name: cloudSync.scanDetail })}
+              {:else if cloudSync.scanPhase}
+                {t("modal.cloud_sync.phase_" + cloudSync.scanPhase, cloudSync.scanPhase)}
+              {:else}
+                {t("modal.cloud_sync.loading")}
+              {/if}
             </p>
+          {:else if cloudSync.machines.length === 0}
+            <p class="empty-hint">{t("modal.cloud_sync.no_remote")}</p>
+          {:else}
+            <div class="machine-list">
+              {#each cloudSync.machines as m}
+                <div class="machine-card">
+                  <div class="machine-info">
+                    <span class="machine-name">{m.name}</span>
+                    <div class="machine-tags">
+                      {#if m.has_baseline}
+                        <span class="tag baseline-tag">baseline</span>
+                      {/if}
+                      {#if m.has_incremental}
+                        <span class="tag inc-tag">incremental</span>
+                      {/if}
+                    </div>
+                  </div>
+                  <div class="machine-actions">
+                    <button
+                      class="machine-download-btn"
+                      onclick={() => handleDownload(m.name)}
+                      disabled={running}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 2a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 10.293V2.5A.5.5 0 018 2z"/>
+                        <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
+                      </svg>
+                      {t("modal.cloud_sync.download")}
+                    </button>
+                    <button
+                      class="machine-delete-btn"
+                      onclick={() => confirmDelete = m.name}
+                      disabled={running}
+                      title={t("modal.cloud_sync.delete_machine")}
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Download all bar -->
+        {#if cloudSync.machines.length > 0}
+          <div class="download-all-bar">
+            <button
+              class="download-all-btn"
+              onclick={() => handleDownload()}
+              disabled={running}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 2a.5.5 0 01.5.5v7.793l2.146-2.147a.5.5 0 01.708.708l-3 3a.5.5 0 01-.708 0l-3-3a.5.5 0 11.708-.708L7.5 10.293V2.5A.5.5 0 018 2z"/>
+                <path d="M0 10a.5.5 0 01.5.5V14a.5.5 0 00.5.5h14a.5.5 0 00.5-.5v-3.5a.5.5 0 011 0V14a1.5 1.5 0 01-1.5 1.5h-14A1.5 1.5 0 010 14v-3.5A.5.5 0 010 10z"/>
+              </svg>
+              {t("modal.cloud_sync.download_all")}
+            </button>
+          </div>
+        {/if}
+
+        <!-- Delete confirmation overlay -->
+        {#if confirmDelete}
+          <div class="confirm-overlay">
+            <div class="confirm-box">
+              <p class="confirm-text">{t("modal.cloud_sync.delete_confirm", { name: confirmDelete })}</p>
+              <div class="confirm-actions">
+                <button class="confirm-cancel-btn" onclick={() => confirmDelete = ""}>
+                  {t("modal.cancel")}
+                </button>
+                <button class="confirm-delete-btn" onclick={() => handleDelete(confirmDelete)}>
+                  {t("modal.cloud_sync.delete_machine")}
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Inline progress section (visible when operation is running) -->
+        {#if running}
+          <div class="progress-section">
+            <div class="progress-header">
+              <div class="spinner"></div>
+              <span class="phase-label">
+                {progressPhase
+                  ? t("modal.cloud_sync.phase_" + progressPhase, progressPhase)
+                  : t("modal.cloud_sync.syncing")}
+              </span>
+            </div>
             {#if downloadingHost}
               <p class="download-host">{downloadingHost}</p>
             {/if}
@@ -335,11 +336,15 @@
               {t("modal.cancel")}
             </button>
           </div>
+        {/if}
 
-        {:else if view === "done"}
-          <div class="done-state">
-            <p class="done-msg">{t("modal.cloud_sync.done")}</p>
-            {#if stats}
+        <!-- Inline result section (visible after operation completes) -->
+        {#if result && !running}
+          <div class="result-section" class:error={result.isError}>
+            {#if result.isError}
+              <p class="error-msg">{result.message}</p>
+            {:else if stats}
+              <p class="done-msg">{result.message}</p>
               <div class="stats-grid">
                 <div class="stat-item">
                   <span class="stat-label">{t("modal.cloud_sync.total")}</span>
@@ -360,17 +365,11 @@
                   </div>
                 {/if}
               </div>
+            {:else}
+              <p class="done-msg">{result.message}</p>
             {/if}
-            <button class="sync-btn back-btn" onclick={() => view = "explorer"}>
-              {t("modal.cloud_sync.back")}
-            </button>
-          </div>
-
-        {:else if view === "error"}
-          <div class="error-state">
-            <p class="error-msg">{errorMessage}</p>
-            <button class="sync-btn back-btn" onclick={() => view = "explorer"}>
-              {t("modal.cloud_sync.back")}
+            <button class="dismiss-btn" onclick={dismissResult}>
+              {t("modal.cloud_sync.dismiss")}
             </button>
           </div>
         {/if}
@@ -423,17 +422,18 @@
   .close-btn:hover {
     color: var(--text-primary);
   }
+  .close-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
   .modal-body {
     padding: 16px;
-  }
-
-  /* Explorer view */
-  .explorer-view {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
 
+  /* Sections */
   .section-header {
     display: flex;
     align-items: center;
@@ -484,6 +484,10 @@
   }
   .upload-btn:hover {
     background: var(--bg-hover, rgba(128, 128, 128, 0.1));
+  }
+  .upload-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .refresh-btn {
@@ -650,19 +654,27 @@
     margin: 8px 0;
   }
 
-  /* Running / Done / Error states */
-  .running-state {
+  /* Progress section (inline at bottom) */
+  .progress-section {
     text-align: center;
-    padding: 20px 0;
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border-default);
+  }
+  .progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 4px;
   }
   .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid var(--border-default);
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-default);
     border-top-color: var(--accent, #4a9eff);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin: 0 auto 12px;
+    flex-shrink: 0;
   }
   @keyframes spin {
     to { transform: rotate(360deg); }
@@ -671,18 +683,17 @@
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 500;
-    margin: 0 0 4px;
   }
   .download-host {
     color: var(--text-muted);
     font-size: 11px;
-    margin: 0 0 10px;
+    margin: 4px 0;
   }
   .deleting-host {
     color: var(--text-danger, #e74c3c);
     font-size: 12px;
     font-weight: 500;
-    margin: 0 0 10px;
+    margin: 4px 0;
   }
   .progress-bar {
     width: 100%;
@@ -724,6 +735,16 @@
     color: var(--text-primary);
   }
 
+  /* Result section (inline at bottom) */
+  .result-section {
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border-default);
+    text-align: center;
+  }
+  .result-section.error {
+    border-top-color: rgba(231, 76, 60, 0.3);
+  }
+
   .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -750,43 +771,33 @@
   }
 
   .done-msg {
-    text-align: center;
     color: var(--text-primary);
     font-weight: 500;
+    font-size: 13px;
     margin: 0 0 12px;
   }
   .error-msg {
-    text-align: center;
     color: var(--text-danger, #e74c3c);
     font-size: 13px;
     margin: 0 0 12px;
   }
 
-  .sync-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 10px;
+  .dismiss-btn {
+    background: none;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-size: 13px;
+    color: var(--text-muted);
+    padding: 6px 16px;
+    border-radius: 4px;
     cursor: pointer;
+    font-size: 12px;
   }
-  .sync-btn:hover {
-    background: var(--bg-hover, rgba(128, 128, 128, 0.1));
-  }
-  .back-btn {
-    margin-top: 12px;
-    width: 100%;
+  .dismiss-btn:hover {
+    color: var(--text-primary);
   }
 
   /* Confirm dialog */
   .confirm-overlay {
-    margin-top: 8px;
+    margin-top: 0;
     padding: 12px;
     border: 1px solid var(--text-danger, #e74c3c);
     border-radius: 6px;
