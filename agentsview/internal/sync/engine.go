@@ -2109,6 +2109,8 @@ func (e *Engine) processFile(
 		res = e.processHermes(file, info)
 	case parser.AgentPositron:
 		res = e.processPositron(file, info)
+	case parser.AgentCodeBuddy, parser.AgentWorkBuddy:
+		res = e.processCodeBuddy(file, info)
 	default:
 		res = processResult{
 			err: fmt.Errorf(
@@ -3002,6 +3004,45 @@ func (e *Engine) processPositron(
 	sess, msgs, err := parser.ParsePositronSession(
 		file.Path, file.Project, e.machineFor(file),
 	)
+	if err != nil {
+		return processResult{err: err}
+	}
+	if sess == nil {
+		return processResult{}
+	}
+
+	hash, err := ComputeFileHash(file.Path)
+	if err == nil {
+		sess.File.Hash = hash
+	}
+
+	return processResult{
+		results: []parser.ParseResult{
+			{Session: *sess, Messages: msgs},
+		},
+	}
+}
+
+func (e *Engine) processCodeBuddy(
+	file parser.DiscoveredFile, info os.FileInfo,
+) processResult {
+	if e.shouldSkipByPath(file.Path, info) {
+		return processResult{skip: true}
+	}
+
+	var sess *parser.ParsedSession
+	var msgs []parser.ParsedMessage
+	var err error
+
+	if file.Agent == parser.AgentCodeBuddy {
+		sess, msgs, err = parser.ParseCodeBuddySession(
+			file.Path, file.Project, e.machineFor(file),
+		)
+	} else {
+		sess, msgs, err = parser.ParseWorkBuddySession(
+			file.Path, file.Project, e.machineFor(file),
+		)
+	}
 	if err != nil {
 		return processResult{err: err}
 	}

@@ -171,6 +171,7 @@ const (
 	dirDefault dirSource = iota
 	dirFile
 	dirEnv
+	dirFlag
 )
 
 // ResolveDirs returns the effective directories for an agent.
@@ -819,6 +820,17 @@ func RegisterServeFlags(fs *flag.FlagSet) {
 		"events-coalesce-interval", 10*time.Second,
 		"Minimum interval between SSE data_changed broadcasts (0 disables coalescing)",
 	)
+
+	for _, def := range parser.Registry {
+		if def.ConfigKey != "" {
+			flagName := strings.ReplaceAll(def.ConfigKey, "_", "-")
+			fs.Var(
+				&stringListFlag{},
+				flagName,
+				fmt.Sprintf("%s projects directories (repeatable or comma-separated)", def.DisplayName),
+			)
+		}
+	}
 }
 
 // RegisterServePFlags registers serve-command flags on fs.
@@ -883,6 +895,17 @@ func RegisterServePFlags(fs *pflag.FlagSet) {
 		"events-coalesce-interval", 10*time.Second,
 		"Minimum interval between SSE data_changed broadcasts (0 disables coalescing)",
 	)
+
+	for _, def := range parser.Registry {
+		if def.ConfigKey != "" {
+			flagName := strings.ReplaceAll(def.ConfigKey, "_", "-")
+			fs.Var(
+				&stringListFlag{},
+				flagName,
+				fmt.Sprintf("%s projects directories (repeatable or comma-separated)", def.DisplayName),
+			)
+		}
+	}
 }
 
 // applyFlags copies explicitly-set flags from fs into cfg.
@@ -941,6 +964,18 @@ func applyFlagValue(cfg *Config, name, value string) {
 	case "events-coalesce-interval":
 		if d, err := time.ParseDuration(value); err == nil {
 			cfg.EventsCoalesceInterval = d
+		}
+	default:
+		// Try agent-specific project dir flags
+		for _, def := range parser.Registry {
+			if def.ConfigKey != "" {
+				flagName := strings.ReplaceAll(def.ConfigKey, "_", "-")
+				if name == flagName {
+					cfg.AgentDirs[def.Type] = splitFlagList(value)
+					cfg.agentDirSource[def.Type] = dirFlag
+					return
+				}
+			}
 		}
 	}
 }

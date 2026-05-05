@@ -32,6 +32,8 @@ const (
 	AgentHermes        AgentType = "hermes"
 	AgentWarp          AgentType = "warp"
 	AgentPositron      AgentType = "positron"
+	AgentCodeBuddy     AgentType = "codebuddy"
+	AgentWorkBuddy     AgentType = "workbuddy"
 )
 
 // AgentDef describes a supported coding agent's filesystem
@@ -319,6 +321,28 @@ var Registry = []AgentDef{
 		FileBased:      true,
 		DiscoverFunc:   DiscoverPositronSessions,
 		FindSourceFunc: FindPositronSourceFile,
+	},
+	{
+		Type:           AgentCodeBuddy,
+		DisplayName:    "CodeBuddy",
+		EnvVar:         "CODEBUDDY_PROJECTS_DIR",
+		ConfigKey:      "codebuddy_project_dirs",
+		DefaultDirs:    []string{".codebuddy/projects"},
+		IDPrefix:       "codebuddy:",
+		FileBased:      true,
+		DiscoverFunc:   DiscoverCodeBuddyProjects,
+		FindSourceFunc: FindCodeBuddySourceFile,
+	},
+	{
+		Type:           AgentWorkBuddy,
+		DisplayName:    "WorkBuddy",
+		EnvVar:         "WORKBUDDY_PROJECTS_DIR",
+		ConfigKey:      "workbuddy_project_dirs",
+		DefaultDirs:    []string{".workbuddy/projects"},
+		IDPrefix:       "workbuddy:",
+		FileBased:      true,
+		DiscoverFunc:   DiscoverWorkBuddyProjects,
+		FindSourceFunc: FindCodeBuddySourceFile,
 	},
 }
 

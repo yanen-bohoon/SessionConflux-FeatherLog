@@ -35,7 +35,7 @@ func ExtractTextContent(
 	)
 	content.ForEach(func(_, block gjson.Result) bool {
 		switch block.Get("type").Str {
-		case "text":
+		case "text", "input_text", "output_text":
 			text := block.Get("text").Str
 			if text != "" {
 				parts = append(parts, text)
