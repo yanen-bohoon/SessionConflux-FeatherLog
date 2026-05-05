@@ -1,5 +1,5 @@
 // Package synccloud bridges agentsview config/state with the
-// session-conflux public API (pkg/sessionconflux).
+// session-conflux sync and transport packages.
 package synccloud
 
 import (
@@ -12,6 +12,15 @@ import (
 
 	"github.com/wesm/agentsview/internal/config"
 )
+
+// Info holds the current sync status for display.
+type Info struct {
+	Entries         int    `json:"entries"`
+	UploadedCount   int    `json:"uploaded_count"`
+	DownloadedCount int    `json:"downloaded_count"`
+	LastUpload      string `json:"last_upload,omitempty"`
+	LastDownload    string `json:"last_download,omitempty"`
+}
 
 // ToSessionConfluxConfig maps an agentsview SyncConfig to a session-conflux Config.
 // Transport types are unified, so the transport field copies directly.
@@ -78,4 +87,26 @@ func MigrateState(dataDir string) error {
 	}
 
 	return nil
+}
+
+// Status returns the current sync state summary.
+func Status(st *state.Store) *Info {
+	entries := st.All()
+	info := &Info{Entries: len(entries)}
+
+	for _, e := range entries {
+		if !e.LastUploaded.IsZero() {
+			info.UploadedCount++
+			if info.LastUpload == "" || e.LastUploaded.Format("2006-01-02T15:04:05Z") > info.LastUpload {
+				info.LastUpload = e.LastUploaded.Format("2006-01-02T15:04:05Z")
+			}
+		}
+		if !e.LastDownloaded.IsZero() {
+			info.DownloadedCount++
+			if info.LastDownload == "" || e.LastDownloaded.Format("2006-01-02T15:04:05Z") > info.LastDownload {
+				info.LastDownload = e.LastDownloaded.Format("2006-01-02T15:04:05Z")
+			}
+		}
+	}
+	return info
 }

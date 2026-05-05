@@ -9,8 +9,8 @@ import (
 	"github.com/wesm/agentsview/internal/parser"
 	"github.com/wesm/agentsview/internal/synccloud"
 
-	sessionconflux "github.com/yanen-bohoon/session-conflux/pkg/sessionconflux"
 	confluxsync "github.com/yanen-bohoon/session-conflux/pkg/sync"
+	confluxtransport "github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
 
 // handleSyncCloudUpload streams an upload via SSE.
@@ -45,7 +45,13 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 		files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 	}
 
-	stats, err := sessionconflux.Upload(scCfg, st, files)
+	tr, err := confluxtransport.New(scCfg)
+	if err != nil {
+		log.Printf("cloud sync upload: transport: %v", err)
+		stream.SendJSON("error", map[string]string{"message": err.Error()})
+		return
+	}
+	stats, err := confluxsync.UploadChanged(tr, scCfg, st, files)
 	if err != nil {
 		log.Printf("cloud sync upload: %v", err)
 		stream.SendJSON("error", map[string]string{"message": err.Error()})
@@ -90,12 +96,19 @@ func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request)
 	}
 
 
-	stats, err := sessionconflux.Download(scCfg, st, findAgentDir)
+	tr, err := confluxtransport.New(scCfg)
+	if err != nil {
+		log.Printf("cloud sync download: transport: %v", err)
+		stream.SendJSON("error", map[string]string{"message": err.Error()})
+		return
+	}
+	n, err := confluxsync.DownloadAllSessions(tr, findAgentDir)
 	if err != nil {
 		log.Printf("cloud sync download: %v", err)
 		stream.SendJSON("error", map[string]string{"message": err.Error()})
 		return
 	}
+	stats := &confluxsync.UploadStats{Synced: n}
 
 	if err := st.Save(); err != nil {
 		log.Printf("cloud sync save state: %v", err)
@@ -111,14 +124,22 @@ func (s *Server) handleSyncCloudStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "loading state: "+err.Error())
 		return
 	}
-	info := sessionconflux.Status(st)
+	info := synccloud.Status(st)
 	writeJSON(w, http.StatusOK, info)
 }
 
 // handleSyncCloudTest verifies the transport connection.
 func (s *Server) handleSyncCloudTest(w http.ResponseWriter, r *http.Request) {
 	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
-	if err := sessionconflux.VerifyTransport(scCfg); err != nil {
+	tr, err := confluxtransport.New(scCfg)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      false,
+			"message": err.Error(),
+		})
+		return
+	}
+	if err := tr.Verify(); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok":      false,
 			"message": err.Error(),

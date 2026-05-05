@@ -1,4 +1,4 @@
-package sessionconflux
+package synccloud
 
 import (
 	"testing"

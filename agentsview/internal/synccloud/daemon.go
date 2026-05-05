@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	sessionconflux "github.com/yanen-bohoon/session-conflux/pkg/sessionconflux"
 	confluxsync "github.com/yanen-bohoon/session-conflux/pkg/sync"
+	confluxtransport "github.com/yanen-bohoon/session-conflux/pkg/transport"
 
 	"github.com/wesm/agentsview/internal/config"
 	"github.com/wesm/agentsview/internal/parser"
@@ -73,11 +73,17 @@ func runSync(cfg *config.Config) {
 		return
 	}
 
+	tr, err := confluxtransport.New(scCfg)
+	if err != nil {
+		log.Printf("cloud sync daemon: transport: %v", err)
+		return
+	}
+
 	dir := cfg.Sync.Direction
 
 	if dir == "both" || dir == "upload" {
 		log.Printf("cloud sync daemon: starting upload")
-		
+
 		engine := sync.NewEngine(nil, sync.EngineConfig{
 			AgentDirs: cfg.AgentDirs,
 			Machine:   "local",
@@ -92,7 +98,7 @@ func runSync(cfg *config.Config) {
 			files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 		}
 
-		stats, err := sessionconflux.Upload(scCfg, st, files)
+		stats, err := confluxsync.UploadChanged(tr, scCfg, st, files)
 		if err != nil {
 			log.Printf("cloud sync daemon: upload: %v", err)
 		} else {
@@ -110,12 +116,11 @@ func runSync(cfg *config.Config) {
 			}
 			return ""
 		}
-		stats, err := sessionconflux.Download(scCfg, st, findAgentDir)
+		n, err := confluxsync.DownloadAllSessions(tr, findAgentDir)
 		if err != nil {
 			log.Printf("cloud sync daemon: download: %v", err)
 		} else {
-			log.Printf("cloud sync daemon: download done (%d synced)",
-				stats.Synced)
+			log.Printf("cloud sync daemon: download done (%d synced)", n)
 		}
 	}
 
