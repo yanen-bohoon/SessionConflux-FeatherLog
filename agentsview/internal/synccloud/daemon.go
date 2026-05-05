@@ -89,12 +89,7 @@ func runSync(cfg *config.Config) {
 			if err != nil {
 				continue
 			}
-			files = append(files, confluxsync.SyncFile{
-				Path:  f.Path,
-				Agent: string(f.Agent),
-				Size:  info.Size(),
-				Mtime: info.ModTime().UnixNano(),
-			})
+			files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 		}
 
 		stats, err := sessionconflux.Upload(scCfg, st, files)

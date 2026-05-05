@@ -14,6 +14,7 @@ import (
 	_ "time/tzdata"
 
 	"github.com/spf13/cobra"
+	confluxsync "github.com/yanen-bohoon/session-conflux/pkg/sync"
 	"github.com/wesm/agentsview/internal/config"
 	"github.com/wesm/agentsview/internal/db"
 	"github.com/wesm/agentsview/internal/parser"
@@ -37,31 +38,19 @@ func ResolveAgentDir(cfg config.Config, agent string) string {
 	return ""
 }
 
-type SyncFile struct {
-	Path  string
-	Agent string
-	Size  int64
-	Mtime int64
-}
-
-func GetChangedFiles(cfg config.Config, since time.Time) []SyncFile {
+func GetChangedFiles(cfg config.Config, since time.Time) []confluxsync.SyncFile {
 	engine := sync.NewEngine(nil, sync.EngineConfig{
 		AgentDirs: cfg.AgentDirs,
 		Machine:   "local",
 	})
 	discoveredFiles := engine.ChangedFiles(since)
-	var files []SyncFile
+	var files []confluxsync.SyncFile
 	for _, f := range discoveredFiles {
 		info, err := os.Stat(f.Path)
 		if err != nil {
 			continue
 		}
-		files = append(files, SyncFile{
-			Path:  f.Path,
-			Agent: string(f.Agent),
-			Size:  info.Size(),
-			Mtime: info.ModTime().UnixNano(),
-		})
+		files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 	}
 	return files
 }

@@ -27,6 +27,18 @@ type SyncFile struct {
 	Mtime int64
 }
 
+// FileFromDiscovered creates a SyncFile from individual discovered-file fields.
+// Fields are passed individually rather than importing agentsview/internal/parser
+// so the function is callable from both sides without internal-package restrictions.
+func FileFromDiscovered(path, agent string, size, mtime int64) SyncFile {
+	return SyncFile{
+		Path:  path,
+		Agent: agent,
+		Size:  size,
+		Mtime: mtime,
+	}
+}
+
 func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile) (*UploadStats, error) {
 	hostname, _ := os.Hostname()
 

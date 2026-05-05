@@ -159,16 +159,7 @@ func runSync(cmd *cobra.Command, args []string) {
 		if doUpload {
 			fmt.Println("--- Upload ---")
 			avCfg := avcli.MustLoadConfig(cmd)
-			avFiles := avcli.GetChangedFiles(avCfg, time.Time{})
-			var files []sync.SyncFile
-			for _, f := range avFiles {
-				files = append(files, sync.SyncFile{
-					Path:  f.Path,
-					Agent: f.Agent,
-					Size:  f.Size,
-					Mtime: f.Mtime,
-				})
-			}
+			files := avcli.GetChangedFiles(avCfg, time.Time{})
 			stats, err := sync.UploadChanged(t, cfg, st, files)
 			if err != nil {
 				return fmt.Errorf("upload: %w", err)
@@ -540,17 +531,8 @@ func runUpload(cmd *cobra.Command, args []string) {
 	fmt.Println("Scanning for changed sessions...")
 	// MustLoadConfig panics on error internally
 	avCfg := avcli.MustLoadConfig(cmd)
-	avFiles := avcli.GetChangedFiles(avCfg, time.Time{})
-	var files []sync.SyncFile
-	for _, f := range avFiles {
-		files = append(files, sync.SyncFile{
-			Path:  f.Path,
-			Agent: f.Agent,
-			Size:  f.Size,
-			Mtime: f.Mtime,
-		})
-	}
-	
+	files := avcli.GetChangedFiles(avCfg, time.Time{})
+
 	stats, err := sync.UploadChanged(t, cfg, st, files)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Upload failed: %v\n", err)
