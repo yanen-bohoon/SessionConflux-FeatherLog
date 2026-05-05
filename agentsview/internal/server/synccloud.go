@@ -317,6 +317,7 @@ func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Requ
 }
 
 // handleSyncCloudRemote streams remote machines via SSE as they are discovered.
+// Machines are scanned concurrently — results stream as each goroutine finishes.
 func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 	stream, err := NewSSEStream(w)
 	if err != nil {
@@ -339,31 +340,56 @@ func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 
 	stream.SendJSON("phase", map[string]string{"phase": "listing"})
 
-	var machines []cloudMachineInfo
+	// Filter directories and scan concurrently.
+	type result struct {
+		name           string
+		hasBaseline    bool
+		hasIncremental bool
+	}
+
+	var wg sync.WaitGroup
+	ch := make(chan result)
+
 	for _, host := range hosts {
 		if !host.IsDir {
 			continue
 		}
-
-		stream.SendJSON("phase", map[string]string{"phase": "scanning", "detail": host.Name})
-
-		m := cloudMachineInfo{Name: host.Name}
-		entries, err := tr.ListFiles(host.Name)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if !e.IsDir {
-				continue
+		wg.Add(1)
+		go func(h confluxtransport.FileInfo) {
+			defer wg.Done()
+			r := result{name: h.Name}
+			entries, err := tr.ListFiles(h.Name)
+			if err != nil {
+				ch <- r
+				return
 			}
-			switch e.Name {
-			case "baseline":
-				m.HasBaseline = true
-			case "incremental":
-				m.HasIncremental = true
+			for _, e := range entries {
+				if !e.IsDir {
+					continue
+				}
+				switch e.Name {
+				case "baseline":
+					r.hasBaseline = true
+				case "incremental":
+					r.hasIncremental = true
+				}
 			}
-		}
+			ch <- r
+		}(host)
+	}
 
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var machines []cloudMachineInfo
+	for r := range ch {
+		m := cloudMachineInfo{
+			Name:           r.name,
+			HasBaseline:    r.hasBaseline,
+			HasIncremental: r.hasIncremental,
+		}
 		machines = append(machines, m)
 		stream.SendJSON("machine", m)
 	}
