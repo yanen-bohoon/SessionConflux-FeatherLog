@@ -112,7 +112,32 @@ Web 端顶栏"云同步"按钮提供可视化上传/下载/状态查看，设置
 
 ## 支持的 Agent
 
-Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp、Zencoder、iFlow、VS Code Copilot、Pi、OpenClaw、Kimi、Claude.ai、ChatGPT、Kiro、Kiro IDE、Cortex、Hermes、Warp、Positron、CodeBuddy、WorkBuddy。
+| Agent | 说明 |
+|-------|------|
+| Claude Code | Anthropic 官方 CLI agent |
+| Codex | OpenAI 官方 CLI agent |
+| Gemini CLI | Google 官方 CLI agent |
+| Copilot | GitHub Copilot Chat |
+| Cursor | Cursor 编辑器 AI 会话 |
+| OpenCode | 开源 CLI coding agent |
+| OpenHands | 开源 CLI coding agent |
+| Amp | CLI coding agent |
+| Zencoder | CLI coding agent |
+| iFlow | CLI coding agent |
+| VS Code Copilot | VS Code 内 Copilot Chat 会话 |
+| Pi | CLI coding agent |
+| OpenClaw | 开源 agent 框架 |
+| Kimi | Moonshot AI agent |
+| Claude.ai | claude.ai 网页版 |
+| ChatGPT | chatgpt.com 网页版 |
+| Kiro | 开源 CLI agent |
+| Kiro IDE | Kiro IDE 内置 AI |
+| Cortex | Snowflake CLI agent |
+| Hermes | 开源 agent 框架 |
+| Warp | Warp 终端 AI |
+| Positron | Positron IDE 内置 AI |
+| CodeBuddy | 腾讯 CodeBuddy CLI agent |
+| WorkBuddy | 腾讯 WorkBuddy 桌面端 agent |
 
 ## 工作原理
 

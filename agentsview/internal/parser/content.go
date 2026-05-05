@@ -363,3 +363,17 @@ func orDefault(s, def string) string {
 	}
 	return s
 }
+
+func truncate(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= maxLen {
+		return s
+	}
+	// Truncate at a valid rune boundary to avoid producing
+	// invalid UTF-8.
+	r := []rune(s)
+	if len(r) <= maxLen {
+		return s
+	}
+	return string(r[:maxLen]) + "..."
+}

@@ -96,20 +96,61 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 			text, thinking, hasThinking, _, _, _ := ExtractTextContent(content)
 
 			msg := ParsedMessage{
-				Ordinal:      ordinal,
-				Role:         RoleType(role),
-				Content:      text,
-				ThinkingText: thinking,
-				HasThinking:  hasThinking,
-				Timestamp:    ts,
+				Ordinal:       ordinal,
+				Role:          RoleType(role),
+				Content:       text,
+				ThinkingText:  thinking,
+				HasThinking:   hasThinking,
+				Timestamp:     ts,
+				ContentLength: len(text) + len(thinking),
 			}
+
+			// Model extraction
+			if m := res.Get("providerData.model").Str; m != "" {
+				msg.Model = m
+			} else if m := res.Get("model").Str; m != "" {
+				msg.Model = m
+			}
+
+			// Token extraction (priority: providerData.rawUsage -> providerData.usage -> message.usage)
+			usage := res.Get("providerData.rawUsage")
+			if !usage.Exists() {
+				usage = res.Get("providerData.usage")
+			}
+			if !usage.Exists() {
+				usage = res.Get("message.usage")
+			}
+
+			if usage.Exists() {
+				msg.TokenUsage = []byte(usage.Raw)
+				if usage.Get("prompt_tokens").Exists() {
+					msg.ContextTokens = int(usage.Get("prompt_tokens").Int() +
+						usage.Get("cache_creation_input_tokens").Int() +
+						usage.Get("cache_read_input_tokens").Int())
+					msg.OutputTokens = int(usage.Get("completion_tokens").Int())
+					msg.HasContextTokens = true
+					msg.HasOutputTokens = true
+				} else if usage.Get("inputTokens").Exists() {
+					msg.ContextTokens = int(usage.Get("inputTokens").Int())
+					msg.OutputTokens = int(usage.Get("outputTokens").Int())
+					msg.HasContextTokens = true
+					msg.HasOutputTokens = true
+				} else if usage.Get("input_tokens").Exists() {
+					msg.ContextTokens = int(usage.Get("input_tokens").Int())
+					msg.OutputTokens = int(usage.Get("output_tokens").Int())
+					msg.HasContextTokens = true
+					msg.HasOutputTokens = true
+				}
+				msg.tokenPresenceKnown = true
+			}
+
 			messages = append(messages, msg)
 			ordinal++
 
 			if role == string(RoleUser) {
 				userMessageCount++
 				if firstMsg == "" {
-					firstMsg = truncate(text, 200)
+					firstMsg = cleanCodeBuddySummary(text)
 				}
 			}
 
@@ -119,10 +160,11 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 			args := res.Get("arguments").Str
 
 			msg := ParsedMessage{
-				Ordinal:    ordinal,
-				Role:       RoleAssistant,
-				HasToolUse: true,
-				Timestamp:  ts,
+				Ordinal:       ordinal,
+				Role:          RoleAssistant,
+				HasToolUse:    true,
+				Timestamp:     ts,
+				ContentLength: len(args),
 				ToolCalls: []ParsedToolCall{
 					{
 						ToolUseID: callId,
@@ -131,6 +173,13 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 						InputJSON: args,
 					},
 				},
+			}
+
+			// Model extraction
+			if m := res.Get("providerData.model").Str; m != "" {
+				msg.Model = m
+			} else if m := res.Get("model").Str; m != "" {
+				msg.Model = m
 			}
 
 			// Token extraction (in function_call line)
@@ -180,9 +229,10 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 			contentRaw, _ := json.Marshal(output)
 
 			msg := ParsedMessage{
-				Ordinal:   ordinal,
-				Role:      RoleUser,
-				Timestamp: ts,
+				Ordinal:       ordinal,
+				Role:          RoleUser,
+				Timestamp:     ts,
+				ContentLength: len(output),
 				ToolResults: []ParsedToolResult{
 					{
 						ToolUseID:  callId,
@@ -236,6 +286,8 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 			Mtime: info.ModTime().UnixNano(),
 		},
 	}
+
+	accumulateMessageTokenUsage(sess, messages)
 
 	return sess, messages, nil
 }
@@ -385,4 +437,52 @@ func FindCodeBuddySourceFile(projectsDir, sessionID string) string {
 // CodeBuddySessionID returns the session ID for a CodeBuddy file.
 func CodeBuddySessionID(name string) string {
 	return strings.TrimSuffix(name, ".jsonl")
+}
+
+func cleanCodeBuddySummary(text string) string {
+	// 1. Try to extract from <user_query>...</user_query>
+	if start := strings.Index(text, "<user_query>"); start != -1 {
+		rest := text[start+len("<user_query>"):]
+		if end := strings.Index(rest, "</user_query>"); end != -1 {
+			return truncate(strings.TrimSpace(rest[:end]), 200)
+		}
+		return truncate(strings.TrimSpace(rest), 200)
+	}
+
+	// 2. Try to extract summary attribute from any tag (common in subagents)
+	if start := strings.Index(text, "summary=\""); start != -1 {
+		rest := text[start+len("summary=\""):]
+		if end := strings.Index(rest, "\""); end != -1 {
+			return truncate(rest[:end], 200)
+		}
+	}
+
+	// 3. Strip all <system-reminder> blocks
+	for {
+		start := strings.Index(text, "<system-reminder")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(text[start:], "</system-reminder>")
+		if end == -1 {
+			text = text[:start]
+			break
+		}
+		text = text[:start] + text[start+end+len("</system-reminder>"):]
+	}
+
+	// 4. Strip any remaining XML-like tags (simple approach)
+	for {
+		start := strings.Index(text, "<")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(text[start:], ">")
+		if end == -1 {
+			break
+		}
+		text = text[:start] + text[start+end+1:]
+	}
+
+	return truncate(strings.TrimSpace(text), 200)
 }
