@@ -50,6 +50,40 @@ func InvalidateRemoteCache() {
 	remoteMachineCache.expiry = time.Time{}
 }
 
+// beginCloudSyncStream handles the shared SSE preamble for cloud sync
+// handlers: ReadOnly guard, SSE stream creation, and transport setup.
+// On transport error, logs and sends an SSE error event.
+func (s *Server) beginCloudSyncStream(w http.ResponseWriter) (*SSEStream, confluxtransport.Transport) {
+	if s.db.ReadOnly() {
+		writeError(w, http.StatusNotImplemented, "cloud sync unavailable in read-only mode")
+		return nil, nil
+	}
+	stream, err := NewSSEStream(w)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		return nil, nil
+	}
+	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
+	tr, err := confluxtransport.New(scCfg)
+	if err != nil {
+		log.Printf("cloud sync: transport: %v", err)
+		stream.SendJSON("error", map[string]string{"message": err.Error()})
+		return nil, nil
+	}
+	return stream, tr
+}
+
+// sendCloudSyncProgress sends an SSE progress event in the standard
+// cloud sync shape.
+func sendCloudSyncProgress(stream *SSEStream, phase string, current, total int, detail string) {
+	stream.SendJSON("progress", map[string]any{
+		"phase":   phase,
+		"current": current,
+		"total":   total,
+		"detail":  detail,
+	})
+}
+
 // Types for listing remote machine data.
 type cloudIncrementalInfo struct {
 	Agent string `json:"agent"`
@@ -124,18 +158,11 @@ func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
 
 // handleSyncCloudUpload streams an upload via SSE.
 func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
-	if s.db.ReadOnly() {
-		writeError(w, http.StatusNotImplemented, "cloud sync unavailable in read-only mode")
+	stream, tr := s.beginCloudSyncStream(w)
+	if stream == nil {
 		return
 	}
 
-	stream, err := NewSSEStream(w)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
-		return
-	}
-
-	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
 	st, err := synccloud.LoadState(s.cfg.DataDir)
 	if err != nil {
 		stream.SendJSON("error", map[string]string{"message": "loading state: " + err.Error()})
@@ -143,6 +170,8 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stream.SendJSON("started", map[string]string{"operation": "upload"})
+
+	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
 
 	discoveredFiles := s.engine.ChangedFiles(time.Time{})
 	var files []confluxsync.SyncFile
@@ -154,19 +183,8 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 		files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 	}
 
-	tr, err := confluxtransport.New(scCfg)
-	if err != nil {
-		log.Printf("cloud sync upload: transport: %v", err)
-		stream.SendJSON("error", map[string]string{"message": err.Error()})
-		return
-	}
 	stats, err := confluxsync.UploadChanged(tr, scCfg, st, files, func(phase string, current, total int, detail string) {
-		stream.SendJSON("progress", map[string]any{
-			"phase":   phase,
-			"current": current,
-			"total":   total,
-			"detail":  detail,
-		})
+		sendCloudSyncProgress(stream, phase, current, total, detail)
 	})
 	if err != nil {
 		log.Printf("cloud sync upload: %v", err)
@@ -184,18 +202,11 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 
 // handleSyncCloudDownload streams a download via SSE.
 func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request) {
-	if s.db.ReadOnly() {
-		writeError(w, http.StatusNotImplemented, "cloud sync unavailable in read-only mode")
+	stream, tr := s.beginCloudSyncStream(w)
+	if stream == nil {
 		return
 	}
 
-	stream, err := NewSSEStream(w)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
-		return
-	}
-
-	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
 	st, err := synccloud.LoadState(s.cfg.DataDir)
 	if err != nil {
 		stream.SendJSON("error", map[string]string{"message": "loading state: " + err.Error()})
@@ -212,29 +223,16 @@ func (s *Server) handleSyncCloudDownload(w http.ResponseWriter, r *http.Request)
 		return ""
 	}
 
-
-	tr, err := confluxtransport.New(scCfg)
-	if err != nil {
-		log.Printf("cloud sync download: transport: %v", err)
-		stream.SendJSON("error", map[string]string{"message": err.Error()})
-		return
-	}
-
-	progressFn := func(phase string, current, total int, detail string) {
-		stream.SendJSON("progress", map[string]any{
-			"phase":   phase,
-			"current": current,
-			"total":   total,
-			"detail":  detail,
-		})
-	}
-
 	hostname := r.URL.Query().Get("hostname")
 	var n int
 	if hostname != "" {
-		n, err = confluxsync.DownloadSessionsForHost(tr, hostname, findAgentDir, progressFn)
+		n, err = confluxsync.DownloadSessionsForHost(tr, hostname, findAgentDir, func(phase string, current, total int, detail string) {
+			sendCloudSyncProgress(stream, phase, current, total, detail)
+		})
 	} else {
-		n, err = confluxsync.DownloadAllSessions(tr, findAgentDir, progressFn)
+		n, err = confluxsync.DownloadAllSessions(tr, findAgentDir, func(phase string, current, total int, detail string) {
+			sendCloudSyncProgress(stream, phase, current, total, detail)
+		})
 	}
 	if err != nil {
 		log.Printf("cloud sync download: %v", err)
@@ -292,40 +290,21 @@ func (s *Server) handleSyncCloudTest(w http.ResponseWriter, r *http.Request) {
 
 // handleSyncCloudDeleteRemote streams deletion of a remote machine's data via SSE.
 func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Request) {
-	if s.db.ReadOnly() {
-		writeError(w, http.StatusNotImplemented, "cloud sync unavailable in read-only mode")
-		return
-	}
-
 	hostname := r.PathValue("hostname")
 	if hostname == "" {
 		writeError(w, http.StatusBadRequest, "missing hostname")
 		return
 	}
 
-	stream, err := NewSSEStream(w)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
-		return
-	}
-
-	scCfg := synccloud.ToSessionConfluxConfig(&s.cfg.Sync)
-	tr, err := confluxtransport.New(scCfg)
-	if err != nil {
-		log.Printf("cloud sync delete: transport: %v", err)
-		stream.SendJSON("error", map[string]string{"message": err.Error()})
+	stream, tr := s.beginCloudSyncStream(w)
+	if stream == nil {
 		return
 	}
 
 	stream.SendJSON("started", map[string]string{"operation": "delete", "hostname": hostname})
 
 	// Collect all remote file paths under this hostname.
-	stream.SendJSON("progress", map[string]any{
-		"phase":   "listing",
-		"current": 0,
-		"total":   0,
-		"detail":  hostname,
-	})
+	sendCloudSyncProgress(stream, "listing", 0, 0, hostname)
 
 	var paths []string
 	addFiles := func(dir string) {
@@ -355,23 +334,13 @@ func (s *Server) handleSyncCloudDeleteRemote(w http.ResponseWriter, r *http.Requ
 	}
 
 	total := len(paths)
-	stream.SendJSON("progress", map[string]any{
-		"phase":   "deleting",
-		"current": 0,
-		"total":   total,
-		"detail":  hostname,
-	})
+	sendCloudSyncProgress(stream, "deleting", 0, total, hostname)
 
 	for i, p := range paths {
 		if err := tr.DeleteFile(p); err != nil {
 			log.Printf("cloud sync delete %s: %v", p, err)
 		}
-		stream.SendJSON("progress", map[string]any{
-			"phase":   "deleting",
-			"current": i + 1,
-			"total":   total,
-			"detail":  p,
-		})
+		sendCloudSyncProgress(stream, "deleting", i+1, total, p)
 	}
 
 	// update local state for this machine
