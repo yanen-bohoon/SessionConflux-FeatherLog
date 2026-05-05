@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"bytes"
@@ -53,11 +53,11 @@ func TestMustLoadConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AGENTSVIEW_DATA_DIR", t.TempDir())
-			cmd := newServeCommand()
+			cmd := NewServeCommand()
 			if err := cmd.Flags().Parse(tt.args); err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
-			cfg := mustLoadConfig(cmd)
+			cfg := MustLoadConfig(cmd)
 
 			if cfg.Host != tt.wantHost {
 				t.Errorf("Host = %q, want %q", cfg.Host, tt.wantHost)
@@ -91,16 +91,16 @@ func TestPrepareServeRuntimeConfigPortZeroUsesAssignedPort(t *testing.T) {
 
 	var err error
 	out := captureStdout(t, func() {
-		cfg, err = prepareServeRuntimeConfig(
+		cfg, err = PrepareServeRuntimeConfig(
 			cfg,
-			serveRuntimeOptions{
+			ServeRuntimeOptions{
 				Mode:          "serve",
 				RequestedPort: 0,
 			},
 		)
 	})
 	if err != nil {
-		t.Fatalf("prepareServeRuntimeConfig: %v", err)
+		t.Fatalf("PrepareServeRuntimeConfig: %v", err)
 	}
 	if cfg.Port == 0 {
 		t.Fatal("Port remained literal 0")
@@ -147,7 +147,7 @@ func TestSetupLogFile(t *testing.T) {
 	origOutput := log.Writer()
 
 	dir := t.TempDir()
-	setupLogFile(dir)
+	SetupLogFile(dir)
 
 	// Close the log file before TempDir cleanup removes the
 	// directory. On Windows, open files can't be deleted.
@@ -187,7 +187,7 @@ func TestSetupLogFileOpenFailure(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "notadir")
 	os.WriteFile(tmpFile, []byte("x"), 0o644)
 
-	setupLogFile(tmpFile)
+	SetupLogFile(tmpFile)
 
 	if !strings.Contains(buf.String(), "cannot open log file") {
 		t.Errorf(
@@ -206,7 +206,7 @@ func TestTruncateLogFile(t *testing.T) {
 	os.WriteFile(path, big, 0o644)
 
 	// Truncate with limit smaller than file size.
-	truncateLogFile(path, 512)
+	TruncateLogFile(path, 512)
 
 	info, err := os.Stat(path)
 	if err != nil {
@@ -225,7 +225,7 @@ func TestTruncateLogFileUnderLimit(t *testing.T) {
 	os.WriteFile(path, content, 0o644)
 
 	// File is under limit: should not be truncated.
-	truncateLogFile(path, 1024)
+	TruncateLogFile(path, 1024)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -239,7 +239,7 @@ func TestTruncateLogFileUnderLimit(t *testing.T) {
 func TestTruncateLogFileMissing(t *testing.T) {
 	// Non-existent file: should not panic.
 	missing := filepath.Join(t.TempDir(), "missing", "log.txt")
-	truncateLogFile(missing, 1024)
+	TruncateLogFile(missing, 1024)
 }
 
 func TestTruncateLogFileSymlink(t *testing.T) {
@@ -264,7 +264,7 @@ func TestTruncateLogFileSymlink(t *testing.T) {
 	}
 
 	// Truncate via symlink: should be a no-op.
-	truncateLogFile(link, 512)
+	TruncateLogFile(link, 512)
 
 	data, err := os.ReadFile(target)
 	if err != nil {
@@ -315,10 +315,10 @@ func TestResyncCoversSignals(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := resyncCoversSignals(tc.stats, tc.fellBack)
+			got := ResyncCoversSignals(tc.stats, tc.fellBack)
 			if got != tc.want {
 				t.Errorf(
-					"resyncCoversSignals = %v, want %v",
+					"ResyncCoversSignals = %v, want %v",
 					got, tc.want,
 				)
 			}

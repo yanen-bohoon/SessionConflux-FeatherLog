@@ -139,7 +139,7 @@ main() {
   read -r goos goarch <<<"$go_target"
   host_triple="$(detect_host_triple)"
 
-  echo "Building agentsview backend for sidecar ($target_triple -> $goos/$goarch)..."
+  echo "Building session-conflux backend for sidecar ($target_triple -> $goos/$goarch)..."
   if [ "$target_triple" != "$host_triple" ]; then
     echo "warning: cross-target sidecar build requested from host $host_triple" >&2
   fi
@@ -163,17 +163,17 @@ main() {
   patch_tauri_version "$version"
   commit="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
   build_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  ldflags="-X main.version=$version -X main.commit=$commit -X main.buildDate=$build_date -s -w"
+  ldflags="-X main.version=$version -X github.com/wesm/agentsview/cmd/agentsview.version=$version -X github.com/wesm/agentsview/cmd/agentsview.commit=$commit -X github.com/wesm/agentsview/cmd/agentsview.buildDate=$build_date -s -w"
 
   tmp_dir="$(mktemp -d)"
   trap 'rm -rf "${tmp_dir:-}"' EXIT
-  build_bin="$tmp_dir/agentsview$ext"
+  build_bin="$tmp_dir/session-conflux$ext"
 
   (
     cd "$REPO_ROOT"
     CGO_ENABLED=1 GOOS="$goos" GOARCH="$goarch" \
       go build -tags fts5 -ldflags "$ldflags" -trimpath \
-      -o "$build_bin" ./cmd/agentsview
+      -o "$build_bin" ./cmd/session-conflux
   )
 
   if [ ! -f "$build_bin" ]; then
@@ -183,7 +183,7 @@ main() {
 
   local out_dir out_bin
   out_dir="$TAURI_DIR/src-tauri/binaries"
-  out_bin="$out_dir/agentsview-$target_triple$ext"
+  out_bin="$out_dir/session-conflux-$target_triple$ext"
 
   mkdir -p "$out_dir"
   cp "$build_bin" "$out_bin"

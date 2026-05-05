@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"os"
@@ -193,7 +193,7 @@ func TestRunPGServeRejectsInvalidManagedCaddyConfigBeforePGSetup(t *testing.T) {
 	)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		t.Fatal("runPGServe unexpectedly succeeded")
+		t.Fatal("RunPGServe unexpectedly succeeded")
 	}
 	if !strings.Contains(string(out), "loopback backend host") {
 		t.Fatalf("output = %s", out)
@@ -214,7 +214,7 @@ func TestRunPGServeNonLoopbackWithoutProxyFallsThroughToPGConfig(t *testing.T) {
 	)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		t.Fatal("runPGServe unexpectedly succeeded")
+		t.Fatal("RunPGServe unexpectedly succeeded")
 	}
 	output := string(out)
 	if strings.Contains(output, "invalid serve config") {
@@ -250,5 +250,5 @@ func TestRunPGServeHelperProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runPGServe(cfg, basePath)
+	RunPGServe(cfg, basePath)
 }

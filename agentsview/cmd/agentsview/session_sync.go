@@ -1,7 +1,7 @@
 // ABOUTME: `session sync` subcommand — triggers a one-off sync for
 // ABOUTME: a single session, either by path or by id. Refuses
 // ABOUTME: against read-only daemons (pg serve).
-package main
+package avcli
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 	"github.com/wesm/agentsview/internal/sync"
 )
 
-func newSessionSyncCommand() *cobra.Command {
+func NewSessionSyncCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "sync <path-or-id>",
 		Short:        "Parse and insert a single session into the database",
@@ -89,7 +89,7 @@ func syncService(
 		return service.NewHTTPBackend(tr.URL, cfg.AuthToken, tr.ReadOnly),
 			func() {}, nil
 	}
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	d, err := db.Open(cfg.DBPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("opening db: %w", err)

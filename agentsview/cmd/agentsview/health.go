@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -25,28 +25,28 @@ const (
 	maxHealthLimit     = db.MaxSessionLimit
 )
 
-func runHealth(args []string, cfg HealthConfig) {
+func RunHealth(args []string, cfg HealthConfig) {
 	appCfg, err := config.LoadMinimal()
 	if err != nil {
-		fatal("loading config: %v", err)
+		Fatal("loading config: %v", err)
 	}
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
-		fatal("opening database: %v", err)
+		Fatal("opening database: %v", err)
 	}
 	defer database.Close()
 
 	ctx := context.Background()
 
 	if len(args) == 0 {
-		runHealthList(ctx, database, cfg)
+		RunHealthList(ctx, database, cfg)
 		return
 	}
-	runHealthDetail(ctx, database, args[0], cfg.JSON)
+	RunHealthDetail(ctx, database, args[0], cfg.JSON)
 }
 
-func runHealthList(
+func RunHealthList(
 	ctx context.Context, database *db.DB, cfg HealthConfig,
 ) {
 	limit := cfg.Limit
@@ -61,7 +61,7 @@ func runHealthList(
 		Limit: limit,
 	})
 	if err != nil {
-		fatal("listing sessions: %v", err)
+		Fatal("listing sessions: %v", err)
 	}
 
 	if cfg.JSON {
@@ -76,13 +76,13 @@ func runHealthList(
 	printHealthList(os.Stdout, page.Sessions)
 }
 
-func runHealthDetail(
+func RunHealthDetail(
 	ctx context.Context, database *db.DB,
 	sessionID string, asJSON bool,
 ) {
 	resolved, err := resolveSessionID(ctx, database, sessionID)
 	if err != nil {
-		fatal("resolving session id: %v", err)
+		Fatal("resolving session id: %v", err)
 	}
 	if resolved == "" {
 		fmt.Fprintf(os.Stderr,
@@ -91,7 +91,7 @@ func runHealthDetail(
 	}
 	sess, err := database.GetSessionFull(ctx, resolved)
 	if err != nil {
-		fatal("getting session: %v", err)
+		Fatal("getting session: %v", err)
 	}
 	if sess == nil {
 		fmt.Fprintf(os.Stderr,
@@ -367,6 +367,6 @@ func writeJSON(w io.Writer, v any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(v); err != nil {
-		fatal("encoding json: %v", err)
+		Fatal("encoding json: %v", err)
 	}
 }

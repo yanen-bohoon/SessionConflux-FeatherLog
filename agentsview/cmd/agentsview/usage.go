@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -62,7 +62,7 @@ type UsageDailyConfig struct {
 	Timezone  string
 }
 
-func runUsageDaily(cfg UsageDailyConfig) {
+func RunUsageDaily(cfg UsageDailyConfig) {
 	database, appCfg := openUsageDB()
 	defer database.Close()
 
@@ -112,7 +112,7 @@ type UsageStatuslineConfig struct {
 	NoSync  bool
 }
 
-func runUsageStatusline(cfg UsageStatuslineConfig) {
+func RunUsageStatusline(cfg UsageStatuslineConfig) {
 	database, appCfg := openUsageDB()
 	defer database.Close()
 
@@ -144,7 +144,7 @@ func runUsageStatusline(cfg UsageStatuslineConfig) {
 	}
 }
 
-func applyCustomPricing(database *db.DB, cfg config.Config) {
+func ApplyCustomPricing(database *db.DB, cfg config.Config) {
 	if len(cfg.CustomModelPricing) == 0 {
 		return
 	}
@@ -158,7 +158,7 @@ func openUsageDB() (*db.DB, config.Config) {
 		os.Exit(1)
 	}
 
-	database, err := openDB(cfg)
+	database, err := OpenDB(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"error opening database: %v\n", err)
@@ -207,8 +207,8 @@ func ensureFreshData(
 		fmt.Fprintln(os.Stderr,
 			"Data version changed, running full resync...")
 		t := time.Now()
-		stats := engine.ResyncAll(ctx, printSyncProgressStderr)
-		printSyncSummaryStderr(stats, t)
+		stats := engine.ResyncAll(ctx, PrintSyncProgressStderr)
+		PrintSyncSummaryStderr(stats, t)
 		return
 	}
 
@@ -233,10 +233,10 @@ func ensureFreshData(
 	engine.SyncAllSince(ctx, since, func(sync.Progress) {})
 }
 
-// printSyncProgressStderr mirrors printSyncProgress but writes
+// PrintSyncProgressStderr mirrors PrintSyncProgress but writes
 // to stderr so it does not pollute stdout-bound JSON or
 // statusline output from the usage commands.
-func printSyncProgressStderr(p sync.Progress) {
+func PrintSyncProgressStderr(p sync.Progress) {
 	if p.SessionsTotal > 0 {
 		fmt.Fprintf(os.Stderr,
 			"\r  %d/%d sessions (%.0f%%) · %d messages",
@@ -246,9 +246,9 @@ func printSyncProgressStderr(p sync.Progress) {
 	}
 }
 
-// printSyncSummaryStderr mirrors printSyncSummary but writes to
-// stderr, for the same reason as printSyncProgressStderr.
-func printSyncSummaryStderr(stats sync.SyncStats, t time.Time) {
+// PrintSyncSummaryStderr mirrors PrintSyncSummary but writes to
+// stderr, for the same reason as PrintSyncProgressStderr.
+func PrintSyncSummaryStderr(stats sync.SyncStats, t time.Time) {
 	summary := fmt.Sprintf(
 		"\nSync complete: %d sessions synced",
 		stats.Synced,
@@ -271,7 +271,7 @@ func printSyncSummaryStderr(stats sync.SyncStats, t time.Time) {
 	}
 }
 
-// seedPricing ensures fallback rates are present in
+// SeedPricing ensures fallback rates are present in
 // model_pricing, then kicks off a background LiteLLM refresh.
 //
 // Fallback rates are only upserted when the stored seed
@@ -279,7 +279,7 @@ func printSyncSummaryStderr(stats sync.SyncStats, t time.Time) {
 // absent). This avoids overwriting live LiteLLM rates on
 // every restart while still propagating corrected fallback
 // rates when the binary is upgraded.
-func seedPricing(database *db.DB) {
+func SeedPricing(database *db.DB) {
 	const metaKey = "_fallback_version"
 	stored, err := database.GetPricingMeta(metaKey)
 	if err != nil {
@@ -340,7 +340,7 @@ func ensurePricing(database *db.DB, offline bool) {
 
 // upsertPricing copies pricing rows into the db.ModelPricing
 // shape and upserts them. Shared by ensurePricing (CLI),
-// seedPricing (startup fallback), and
+// SeedPricing (startup fallback), and
 // refreshPricingFromLiteLLM (async refresh).
 func upsertPricing(
 	database *db.DB, prices []pricing.ModelPricing,

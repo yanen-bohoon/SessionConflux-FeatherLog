@@ -1,13 +1,13 @@
-// ABOUTME: applyClassifierConfig installs user-defined
+// ABOUTME: ApplyClassifierConfig installs user-defined
 // ABOUTME: classifier prefixes into the db package singleton.
-package main
+package avcli
 
 import (
 	"github.com/wesm/agentsview/internal/config"
 	"github.com/wesm/agentsview/internal/db"
 )
 
-// applyClassifierConfig installs user-defined classifier
+// ApplyClassifierConfig installs user-defined classifier
 // prefixes into the db package singleton. Every command that
 // loads config and may open SQLite or PostgreSQL must call
 // this BEFORE db.Open / postgres.Open / postgres.NewStore /
@@ -16,6 +16,6 @@ import (
 // output, etc.); see db.SetUserAutomationPrefixes for
 // rationale. The static guardrail test in
 // classifier_wiring_test.go (Task 7) enforces this rule.
-func applyClassifierConfig(cfg config.Config) {
+func ApplyClassifierConfig(cfg config.Config) {
 	db.SetUserAutomationPrefixes(cfg.Automated.Prefixes)
 }

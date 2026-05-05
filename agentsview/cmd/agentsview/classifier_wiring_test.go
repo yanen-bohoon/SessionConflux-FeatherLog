@@ -1,7 +1,7 @@
 // ABOUTME: static AST scan that prevents new commands from
 // ABOUTME: opening a store without first wiring the
 // ABOUTME: user-prefix classifier singleton.
-package main
+package avcli
 
 import (
 	"go/ast"
@@ -18,7 +18,7 @@ import (
 // the classifier singleton (directly or indirectly via
 // backfill). Every function or function literal in
 // cmd/agentsview/ that contains one of these calls must
-// contain an EARLIER call to applyClassifierConfig in the
+// contain an EARLIER call to ApplyClassifierConfig in the
 // same enclosing body.
 var triggerCalls = map[string]struct{}{
 	"db.Open":               {},
@@ -28,12 +28,12 @@ var triggerCalls = map[string]struct{}{
 	"postgres.EnsureSchema": {},
 }
 
-const wiringHelper = "applyClassifierConfig"
+const wiringHelper = "ApplyClassifierConfig"
 
 // TestEveryStoreOpenPathIsWired enforces the rule documented
 // in the design spec: every code path in cmd/agentsview that
 // opens or initializes a store must first call
-// applyClassifierConfig so user-defined prefixes reach the
+// ApplyClassifierConfig so user-defined prefixes reach the
 // db package singleton.
 func TestEveryStoreOpenPathIsWired(t *testing.T) {
 	entries, err := os.ReadDir(".")
@@ -74,7 +74,7 @@ func TestEveryStoreOpenPathIsWired(t *testing.T) {
 // scanFile walks every function declaration and function
 // literal in f, returning a violation string for each body
 // that contains a trigger call without an earlier
-// applyClassifierConfig call.
+// ApplyClassifierConfig call.
 func scanFile(
 	fset *token.FileSet, f *ast.File,
 ) []string {

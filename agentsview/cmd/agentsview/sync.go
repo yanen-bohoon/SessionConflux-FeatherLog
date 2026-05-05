@@ -1,6 +1,6 @@
 // ABOUTME: CLI subcommand that syncs session data into the database
 // ABOUTME: without starting the HTTP server.
-package main
+package avcli
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type SyncConfig struct {
 	Port int
 }
 
-func runSync(cfg SyncConfig) {
+func RunSync(cfg SyncConfig) {
 	appCfg, err := config.LoadMinimal()
 	if err != nil {
 		log.Fatalf("loading config: %v", err)
@@ -34,12 +34,12 @@ func runSync(cfg SyncConfig) {
 		log.Fatalf("creating data dir: %v", err)
 	}
 
-	setupLogFile(appCfg.DataDir)
+	SetupLogFile(appCfg.DataDir)
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
-		fatal("opening database: %v", err)
+		Fatal("opening database: %v", err)
 	}
 	defer database.Close()
 
@@ -48,20 +48,20 @@ func runSync(cfg SyncConfig) {
 			appCfg.CursorSecret,
 		)
 		if decErr != nil {
-			fatal("invalid cursor secret: %v", decErr)
+			Fatal("invalid cursor secret: %v", decErr)
 		}
 		database.SetCursorSecret(secret)
 	}
 
 	if cfg.Host != "" {
-		runRemoteSync(appCfg, database, cfg)
+		RunRemoteSync(appCfg, database, cfg)
 		return
 	}
 
-	runLocalSync(appCfg, database, cfg.Full)
+	RunLocalSync(appCfg, database, cfg.Full)
 }
 
-func runRemoteSync(
+func RunRemoteSync(
 	appCfg config.Config, database *db.DB, cfg SyncConfig,
 ) {
 	rs := &ssh.RemoteSync{
@@ -74,28 +74,28 @@ func runRemoteSync(
 	}
 	ctx := context.Background()
 	if _, err := rs.Run(ctx); err != nil {
-		fatal("remote sync: %v", err)
+		Fatal("remote sync: %v", err)
 	}
 }
 
-// runLocalSync runs a local sync (incremental or full resync).
+// RunLocalSync runs a local sync (incremental or full resync).
 // It returns true if a full resync was performed, which callers
 // can use to force a full PG push (watermarks become stale after
 // a local resync).
-func runLocalSync(
+func RunLocalSync(
 	appCfg config.Config, database *db.DB, full bool,
 ) bool {
 	for _, def := range parser.Registry {
 		if !appCfg.IsUserConfigured(def.Type) {
 			continue
 		}
-		warnMissingDirs(
+		WarnMissingDirs(
 			appCfg.ResolveDirs(def.Type),
 			string(def.Type),
 		)
 	}
 
-	cleanResyncTemp(appCfg.DBPath)
+	CleanResyncTemp(appCfg.DBPath)
 
 	engine := sync.NewEngine(database, sync.EngineConfig{
 		AgentDirs: appCfg.AgentDirs,
@@ -105,9 +105,9 @@ func runLocalSync(
 	didResync := full || database.NeedsResync()
 	ctx := context.Background()
 	if didResync {
-		runInitialResync(ctx, engine)
+		RunInitialResync(ctx, engine)
 	} else {
-		runInitialSync(ctx, engine)
+		RunInitialSync(ctx, engine)
 	}
 
 	fmt.Println()

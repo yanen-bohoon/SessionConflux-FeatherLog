@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"fmt"
@@ -54,20 +54,20 @@ func newRootCommand() *cobra.Command {
 		"Show version information",
 	)
 
-	root.AddCommand(newServeCommand())
-	root.AddCommand(newSyncCommand())
-	root.AddCommand(newPruneCommand())
-	root.AddCommand(newUpdateCommand())
-	root.AddCommand(newTokenUseCommand())
-	root.AddCommand(newImportCommand())
-	root.AddCommand(newProjectsCommand())
-	root.AddCommand(newHealthCommand())
-	root.AddCommand(newUsageCommand())
-	root.AddCommand(newPGCommand())
-	root.AddCommand(newSessionCommand())
-	root.AddCommand(newStatsCommand())
-	root.AddCommand(newClassifierCommand())
-	root.AddCommand(newVersionCommand())
+	root.AddCommand(NewServeCommand())
+	root.AddCommand(NewFileSyncCommand())
+	root.AddCommand(NewPruneCommand())
+	root.AddCommand(NewUpdateCommand())
+	root.AddCommand(NewTokenUseCommand())
+	root.AddCommand(NewImportCommand())
+	root.AddCommand(NewProjectsCommand())
+	root.AddCommand(NewHealthCommand())
+	root.AddCommand(NewUsageCommand())
+	root.AddCommand(NewPGCommand())
+	root.AddCommand(NewSessionCommand())
+	root.AddCommand(NewStatsCommand())
+	root.AddCommand(NewClassifierCommand())
+	root.AddCommand(NewVersionCommand())
 
 	defaultHelp := root.HelpFunc()
 	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -81,7 +81,7 @@ func newRootCommand() *cobra.Command {
 	return root
 }
 
-func newServeCommand() *cobra.Command {
+func NewServeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "serve",
 		Short:        "Start server",
@@ -89,14 +89,14 @@ func newServeCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runServe(mustLoadConfig(cmd))
+			RunServe(MustLoadConfig(cmd))
 		},
 	}
 	config.RegisterServePFlags(cmd.Flags())
 	return cmd
 }
 
-func newSyncCommand() *cobra.Command {
+func NewFileSyncCommand() *cobra.Command {
 	var cfg SyncConfig
 	cmd := &cobra.Command{
 		Use:          "sync",
@@ -116,7 +116,7 @@ func newSyncCommand() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runSync(cfg)
+			RunSync(cfg)
 		},
 	}
 	cmd.Flags().BoolVar(
@@ -138,7 +138,7 @@ func newSyncCommand() *cobra.Command {
 	return cmd
 }
 
-func newPruneCommand() *cobra.Command {
+func NewPruneCommand() *cobra.Command {
 	var project, before, firstMessage string
 	var maxMessages int
 	var dryRun, yes bool
@@ -153,7 +153,7 @@ func newPruneCommand() *cobra.Command {
 			if maxMessages != -1 {
 				mm = &maxMessages
 			}
-			runPrune(PruneConfig{
+			RunPrune(PruneConfig{
 				Filter: db.PruneFilter{
 					Project:      project,
 					MaxMessages:  mm,
@@ -174,7 +174,7 @@ func newPruneCommand() *cobra.Command {
 	return cmd
 }
 
-func newUpdateCommand() *cobra.Command {
+func NewUpdateCommand() *cobra.Command {
 	var cfg UpdateConfig
 	cmd := &cobra.Command{
 		Use:          "update",
@@ -183,7 +183,7 @@ func newUpdateCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runUpdate(cfg)
+			RunUpdate(cfg)
 		},
 	}
 	cmd.Flags().BoolVar(&cfg.Check, "check", false, "Check for updates without installing")
@@ -192,7 +192,7 @@ func newUpdateCommand() *cobra.Command {
 	return cmd
 }
 
-func newTokenUseCommand() *cobra.Command {
+func NewTokenUseCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "token-use <session-id>",
 		Short:        "Show token usage for a session (JSON)",
@@ -200,12 +200,12 @@ func newTokenUseCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			runTokenUse(args)
+			RunTokenUse(args)
 		},
 	}
 }
 
-func newImportCommand() *cobra.Command {
+func NewImportCommand() *cobra.Command {
 	var importType string
 	cmd := &cobra.Command{
 		Use:          "import --type <type> <path>",
@@ -214,7 +214,7 @@ func newImportCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			runImport(ImportConfig{Type: importType, Path: args[0]})
+			RunImport(ImportConfig{Type: importType, Path: args[0]})
 		},
 	}
 	cmd.Flags().StringVar(&importType, "type", "", "Import type: claude-ai, chatgpt")
@@ -222,7 +222,7 @@ func newImportCommand() *cobra.Command {
 	return cmd
 }
 
-func newProjectsCommand() *cobra.Command {
+func NewProjectsCommand() *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:          "projects",
@@ -231,14 +231,14 @@ func newProjectsCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runProjects(jsonOutput)
+			RunProjects(jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON array")
 	return cmd
 }
 
-func newHealthCommand() *cobra.Command {
+func NewHealthCommand() *cobra.Command {
 	var cfg HealthConfig
 	cmd := &cobra.Command{
 		Use:   "health [session-id]",
@@ -251,7 +251,7 @@ func newHealthCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			runHealth(args, cfg)
+			RunHealth(args, cfg)
 		},
 	}
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false,
@@ -262,7 +262,7 @@ func newHealthCommand() *cobra.Command {
 	return cmd
 }
 
-func newUsageCommand() *cobra.Command {
+func NewUsageCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "usage",
 		Short:        "Token cost tracking and reporting",
@@ -273,12 +273,12 @@ func newUsageCommand() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newUsageDailyCommand())
-	cmd.AddCommand(newUsageStatuslineCommand())
+	cmd.AddCommand(NewUsageDailyCommand())
+	cmd.AddCommand(NewUsageStatuslineCommand())
 	return cmd
 }
 
-func newUsageDailyCommand() *cobra.Command {
+func NewUsageDailyCommand() *cobra.Command {
 	var cfg UsageDailyConfig
 	cmd := &cobra.Command{
 		Use:          "daily",
@@ -286,7 +286,7 @@ func newUsageDailyCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runUsageDaily(cfg)
+			RunUsageDaily(cfg)
 		},
 	}
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "Output as JSON")
@@ -301,7 +301,7 @@ func newUsageDailyCommand() *cobra.Command {
 	return cmd
 }
 
-func newUsageStatuslineCommand() *cobra.Command {
+func NewUsageStatuslineCommand() *cobra.Command {
 	var cfg UsageStatuslineConfig
 	cmd := &cobra.Command{
 		Use:          "statusline",
@@ -309,7 +309,7 @@ func newUsageStatuslineCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runUsageStatusline(cfg)
+			RunUsageStatusline(cfg)
 		},
 	}
 	cmd.Flags().StringVar(&cfg.Agent, "agent", "", "Filter by agent name")
@@ -318,7 +318,7 @@ func newUsageStatuslineCommand() *cobra.Command {
 	return cmd
 }
 
-func newPGCommand() *cobra.Command {
+func NewPGCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "pg",
 		Short:        "PostgreSQL sync and serve commands",
@@ -343,7 +343,7 @@ func newPGPushCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runPGPush(cfg)
+			RunPGPush(cfg)
 		},
 	}
 	cmd.Flags().BoolVar(&cfg.Full, "full", false, "Force full local resync and PG push")
@@ -360,7 +360,7 @@ func newPGStatusCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runPGStatus()
+			RunPGStatus()
 		},
 	}
 }
@@ -374,9 +374,9 @@ func newPGServeCommand() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			appCfg, basePath, err := loadPGServeConfig(cmd)
 			if err != nil {
-				fatal("%v", err)
+				Fatal("%v", err)
 			}
-			runPGServe(appCfg, basePath)
+			RunPGServe(appCfg, basePath)
 		},
 	}
 	cmd.Flags().String(
@@ -388,7 +388,7 @@ func newPGServeCommand() *cobra.Command {
 	return cmd
 }
 
-func newVersionCommand() *cobra.Command {
+func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "version",
 		Short:        "Show version information",

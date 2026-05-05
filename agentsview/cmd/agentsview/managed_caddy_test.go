@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -46,8 +46,8 @@ func TestValidateServeConfigManagedCaddyAllowsHTTPS(t *testing.T) {
 			AllowedSubnets: []string{"10.0.0.0/16"},
 		},
 	}
-	if err := validateServeConfig(cfg); err != nil {
-		t.Fatalf("validateServeConfig returned error: %v", err)
+	if err := ValidateServeConfig(cfg); err != nil {
+		t.Fatalf("ValidateServeConfig returned error: %v", err)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestValidateServeConfigManagedCaddyRejectsNonLoopbackHost(t *testing.T) {
 			Bin:  os.Args[0],
 		},
 	}
-	err := validateServeConfig(cfg)
+	err := ValidateServeConfig(cfg)
 	if err == nil {
 		t.Fatal("expected error for non-loopback backend host")
 	}
@@ -93,7 +93,7 @@ func TestValidateServeConfigManagedCaddyRequiresAllowlistForNonLoopbackBind(t *t
 			TLSKey:   keyPath,
 		},
 	}
-	err := validateServeConfig(cfg)
+	err := ValidateServeConfig(cfg)
 	if err == nil {
 		t.Fatal("expected non-loopback bind allowlist error")
 	}
@@ -114,7 +114,7 @@ func TestValidateServeConfigManagedCaddyRejectsHTTPWithTLS(t *testing.T) {
 			TLSKey:  "/tmp/viewer.key",
 		},
 	}
-	err := validateServeConfig(cfg)
+	err := ValidateServeConfig(cfg)
 	if err == nil {
 		t.Fatal("expected HTTP-with-TLS error")
 	}

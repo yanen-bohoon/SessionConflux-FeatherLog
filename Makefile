@@ -1,48 +1,41 @@
-## SessionConflux + AgentsView 统一构建
+## SessionConflux 统一构建
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -s -w -X main.version=$(VERSION)
-LDFLAGS_AV := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)
+# LDFLAGS for unified binary
+LDFLAGS := -s -w -X main.version=$(VERSION) -X github.com/wesm/agentsview/cmd/agentsview.version=$(VERSION) -X github.com/wesm/agentsview/cmd/agentsview.commit=$(COMMIT) -X github.com/wesm/agentsview/cmd/agentsview.buildDate=$(BUILD_DATE)
 BIN := session-conflux
-AV_BIN := agentsview
 INSTALL_DIR := $(HOME)/SessionConflux-FeatherLog
 
-.PHONY: build build-av build-all install clean release
+.PHONY: build install clean release test
 
-# 仅构建 session-conflux
+# 构建统一 binary (包含 Cloud Sync + Web UI)
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/session-conflux/
+	CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/session-conflux/
 
-# 构建 AgentsView（使用预构建的前端 dist，无需 Node.js）
-build-av:
-	cd agentsview && CGO_ENABLED=1 go build -tags fts5 -ldflags="$(LDFLAGS_AV)" -trimpath -o agentsview ./cmd/agentsview
-	cp agentsview/agentsview $(AV_BIN)
-
-# 构建全部
-build-all: build build-av
-
-# 一键安装到 ~/SessionConflux-FeatherLog
-install: build-all
+# 一键安装
+install: build
 	mkdir -p $(INSTALL_DIR)
 	cp $(BIN) $(INSTALL_DIR)/$(BIN)
-	cp $(AV_BIN) $(INSTALL_DIR)/$(AV_BIN)
 	@echo "安装完成: $(INSTALL_DIR)/"
-	@echo "  ├── session-conflux"
-	@echo "  └── agentsview"
+	@echo "  └── session-conflux"
 	@echo ""
 	@if ! echo "$$PATH" | grep -q "$(INSTALL_DIR)"; then \
 		echo "提示: 将此目录添加到 PATH 以便全局使用:"; \
 		echo "  export PATH=\"$(INSTALL_DIR):\$$PATH\""; \
 	fi
 
-# 交叉编译 session-conflux（4个平台）
+test:
+	go test ./...
+	cd agentsview && go test -tags fts5 ./...
+
+# 交叉编译 (仅 4 个常用平台)
 release:
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BIN)_darwin_arm64 ./cmd/session-conflux/
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)_darwin_amd64 ./cmd/session-conflux/
-	GOOS=linux  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)_linux_amd64  ./cmd/session-conflux/
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BIN)_windows_amd64.exe ./cmd/session-conflux/
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN)_darwin_arm64 ./cmd/session-conflux/
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN)_darwin_amd64 ./cmd/session-conflux/
+	GOOS=linux  GOARCH=amd64 CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN)_linux_amd64  ./cmd/session-conflux/
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN)_windows_amd64.exe ./cmd/session-conflux/
 
 clean:
-	rm -f $(BIN) $(AV_BIN)
+	rm -f $(BIN) agentsview
 	rm -f $(BIN)_darwin_arm64 $(BIN)_darwin_amd64 $(BIN)_linux_amd64 $(BIN)_windows_amd64.exe

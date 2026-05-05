@@ -1,6 +1,6 @@
 // ABOUTME: `agentsview stats` top-level command — window-scoped
 // ABOUTME: workspace analytics emitting the v1 SessionStats JSON schema.
-package main
+package avcli
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newStatsCommand() *cobra.Command {
+func NewStatsCommand() *cobra.Command {
 	var (
 		since, until, agent, timezone    string
 		includeProjects, excludeProjects []string
@@ -137,8 +137,8 @@ func openStatsService(
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading config: %w", err)
 	}
-	applyClassifierConfig(cfg)
-	d, err := openDB(cfg)
+	ApplyClassifierConfig(cfg)
+	d, err := OpenDB(cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("opening db: %w", err)
 	}

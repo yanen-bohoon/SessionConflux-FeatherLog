@@ -1,6 +1,6 @@
 // ABOUTME: CLI subcommand that returns token usage data for a
 // ABOUTME: session, syncing on-demand if no server is running.
-package main
+package avcli
 
 import (
 	"context"
@@ -158,7 +158,7 @@ type tokenUseOutput struct {
 // on-demand sync or direct DB access.
 const startupWaitTimeout = 30 * time.Second
 
-func runTokenUse(args []string) {
+func RunTokenUse(args []string) {
 	if len(args) != 1 {
 		fmt.Fprintln(os.Stderr,
 			"usage: agentsview token-use <session-id>")
@@ -228,7 +228,7 @@ func tokenUse(sessionID string) (int, error) {
 		}
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
 		return tokenUseExitErr,
@@ -297,7 +297,7 @@ func tokenUse(sessionID string) (int, error) {
 		if syncErr := engine.SyncSingleSession(
 			resolvedID,
 		); syncErr != nil {
-			// Not fatal: session may already be in the DB
+			// Not Fatal: session may already be in the DB
 			// from a previous sync, or may not exist at all.
 			fmt.Fprintf(os.Stderr,
 				"warning: sync failed: %v\n", syncErr)

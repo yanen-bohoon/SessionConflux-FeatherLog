@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ type UpdateConfig struct {
 	Force bool
 }
 
-func runUpdate(cfg UpdateConfig) {
+func RunUpdate(cfg UpdateConfig) {
 	dataDir, err := config.ResolveDataDir()
 	if err != nil {
 		log.Fatalf("resolving data dir: %v", err)

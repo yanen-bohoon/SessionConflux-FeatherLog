@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"bufio"
@@ -233,12 +233,12 @@ func formatBytes(b int64) string {
 	}
 }
 
-func runPrune(cfg PruneConfig) {
+func RunPrune(cfg PruneConfig) {
 	if cfg.Filter.MaxMessages != nil && *cfg.Filter.MaxMessages < 0 {
-		fatal("max-messages must be >= 0")
+		Fatal("max-messages must be >= 0")
 	}
 	if !cfg.Filter.HasFilters() {
-		fatal("at least one filter is required\nuse --project, --max-messages, --before, or --first-message")
+		Fatal("at least one filter is required\nuse --project, --max-messages, --before, or --first-message")
 	}
 
 	appCfg, err := config.LoadMinimal()
@@ -246,7 +246,7 @@ func runPrune(cfg PruneConfig) {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
 		log.Fatalf("opening database: %v", err)

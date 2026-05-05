@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -11,12 +11,12 @@ import (
 	"github.com/wesm/agentsview/internal/server"
 )
 
-type serveRuntimeOptions struct {
+type ServeRuntimeOptions struct {
 	Mode          string
 	RequestedPort int
 }
 
-type serveRuntime struct {
+type ServeRuntime struct {
 	Cfg        config.Config
 	LocalURL   string
 	PublicURL  string
@@ -24,9 +24,9 @@ type serveRuntime struct {
 	Caddy      *managedCaddy
 }
 
-func prepareServeRuntimeConfig(
+func PrepareServeRuntimeConfig(
 	cfg config.Config,
-	opts serveRuntimeOptions,
+	opts ServeRuntimeOptions,
 ) (config.Config, error) {
 	requestedPort := opts.RequestedPort
 	if requestedPort == 0 {
@@ -62,12 +62,12 @@ func prepareServeRuntimeConfig(
 	return cfg, nil
 }
 
-func startServerWithOptionalCaddy(
+func StartServerWithOptionalCaddy(
 	ctx context.Context,
 	cfg config.Config,
 	srv *server.Server,
-	opts serveRuntimeOptions,
-) (*serveRuntime, error) {
+	opts ServeRuntimeOptions,
+) (*ServeRuntime, error) {
 	serveErrCh := make(chan error, 1)
 	go func() {
 		serveErrCh <- srv.ListenAndServe()
@@ -130,7 +130,7 @@ func startServerWithOptionalCaddy(
 		}
 	}
 
-	return &serveRuntime{
+	return &ServeRuntime{
 		Cfg:        cfg,
 		LocalURL:   fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Port),
 		PublicURL:  browserURL(cfg),
@@ -139,10 +139,10 @@ func startServerWithOptionalCaddy(
 	}, nil
 }
 
-func waitForServerRuntime(
+func WaitForServerRuntime(
 	ctx context.Context,
 	srv *server.Server,
-	rt *serveRuntime,
+	rt *ServeRuntime,
 ) error {
 	var caddyErrCh <-chan error
 	if rt.Caddy != nil {

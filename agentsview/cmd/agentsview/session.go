@@ -1,6 +1,6 @@
 // ABOUTME: session command group root — programmatic CLI
 // ABOUTME: surface for the SessionService interface.
-package main
+package avcli
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newSessionCommand() *cobra.Command {
+func NewSessionCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "session",
 		Short:        "Programmatic access to session data",
@@ -31,13 +31,13 @@ func newSessionCommand() *cobra.Command {
 		"Remote daemon URL (not yet implemented)",
 	)
 
-	cmd.AddCommand(newSessionGetCommand())
-	cmd.AddCommand(newSessionListCommand())
-	cmd.AddCommand(newSessionMessagesCommand())
-	cmd.AddCommand(newSessionToolCallsCommand())
-	cmd.AddCommand(newSessionExportCommand())
-	cmd.AddCommand(newSessionSyncCommand())
-	cmd.AddCommand(newSessionWatchCommand())
+	cmd.AddCommand(NewSessionGetCommand())
+	cmd.AddCommand(NewSessionListCommand())
+	cmd.AddCommand(NewSessionMessagesCommand())
+	cmd.AddCommand(NewSessionToolCallsCommand())
+	cmd.AddCommand(NewSessionExportCommand())
+	cmd.AddCommand(NewSessionSyncCommand())
+	cmd.AddCommand(NewSessionWatchCommand())
 	return cmd
 }
 

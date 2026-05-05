@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func seedHash(t *testing.T, cfg config.Config) {
 // stats table via a raw SQLite connection. Bypasses db.Open
 // because db.Open runs the backfill, which would re-write
 // the hash that this helper exists to observe (e.g. after
-// runClassifierRebuild deletes it).
+// RunClassifierRebuild deletes it).
 func readStoredHash(t *testing.T, dbPath string) string {
 	t.Helper()
 	conn, err := sql.Open("sqlite3", dbPath)
@@ -88,13 +88,13 @@ func TestClassifierRebuildClearsSQLiteHash(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	cfg.DBPath = filepath.Join(dir, "sessions.db")
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	seedHash(t, cfg)
 	if got := readStoredHash(t, cfg.DBPath); got == "" {
 		t.Fatalf("precondition: expected stored hash, got empty")
 	}
 
-	if err := runClassifierRebuild(
+	if err := RunClassifierRebuild(
 		context.Background(), cfg, &bytes.Buffer{},
 	); err != nil {
 		t.Fatalf("rebuild: %v", err)
@@ -116,11 +116,11 @@ func TestClassifierRebuildPrintsLoadedPrefixes(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	cfg.DBPath = filepath.Join(dir, "sessions.db")
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	seedHash(t, cfg)
 
 	out := &bytes.Buffer{}
-	if err := runClassifierRebuild(
+	if err := RunClassifierRebuild(
 		context.Background(), cfg, out,
 	); err != nil {
 		t.Fatalf("rebuild: %v", err)
@@ -177,7 +177,7 @@ func TestClassifierRebuildAllowsDirectWritable(t *testing.T) {
 
 // TestClassifierRebuildHardFailsOnPGUnreachable confirms
 // that when PG is configured (pg.url non-empty) and the
-// connection fails, runClassifierRebuild returns an error
+// connection fails, RunClassifierRebuild returns an error
 // instead of silently skipping the PG delete.
 func TestClassifierRebuildHardFailsOnPGUnreachable(t *testing.T) {
 	dir := classifierTestEnv(t, nil)
@@ -191,10 +191,10 @@ func TestClassifierRebuildHardFailsOnPGUnreachable(t *testing.T) {
 	// blocking the test.
 	cfg.PG.URL = "postgres://nobody:nobody@127.0.0.1:1/nonexistent?sslmode=disable&connect_timeout=2"
 	cfg.PG.AllowInsecure = true
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	seedHash(t, cfg)
 
-	err = runClassifierRebuild(
+	err = RunClassifierRebuild(
 		context.Background(), cfg, &bytes.Buffer{},
 	)
 	if err == nil {
@@ -228,10 +228,10 @@ func TestClassifierRebuildSkipsPGWhenNotConfigured(t *testing.T) {
 	}
 	cfg.DBPath = filepath.Join(dir, "sessions.db")
 	cfg.PG.URL = ""
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	seedHash(t, cfg)
 
-	if err := runClassifierRebuild(
+	if err := RunClassifierRebuild(
 		context.Background(), cfg, &bytes.Buffer{},
 	); err != nil {
 		t.Fatalf("unexpected error when PG unconfigured: %v", err)
@@ -243,7 +243,7 @@ func TestClassifierRebuildSkipsPGWhenNotConfigured(t *testing.T) {
 // Routine config edits are auto-detected on daemon restart;
 // this group is a recovery hatch.
 func TestClassifierCommandIsHidden(t *testing.T) {
-	cmd := newClassifierCommand()
+	cmd := NewClassifierCommand()
 	if !cmd.Hidden {
 		t.Errorf("classifier command should be Hidden=true; got false")
 	}

@@ -1,6 +1,6 @@
 // ABOUTME: `session messages <id>` subcommand — prints a window of
 // ABOUTME: messages in JSON or human format.
-package main
+package avcli
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newSessionMessagesCommand() *cobra.Command {
+func NewSessionMessagesCommand() *cobra.Command {
 	var (
 		from      int
 		limit     int

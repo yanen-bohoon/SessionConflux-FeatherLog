@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	avcli "github.com/wesm/agentsview/cmd/agentsview"
 	"github.com/yanen-bohoon/session-conflux/pkg/config"
 	"github.com/yanen-bohoon/session-conflux/pkg/scanner"
 	"github.com/yanen-bohoon/session-conflux/pkg/scheduler"
@@ -76,6 +77,23 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
+	// Root-level groups (mirroring agentsview groups)
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "cloud", Title: "Cloud Sync Commands:"},
+		&cobra.Group{ID: "core", Title: "Core Commands:"},
+		&cobra.Group{ID: "data", Title: "Data Commands:"},
+		&cobra.Group{ID: "usage", Title: "Usage Commands:"},
+		&cobra.Group{ID: "meta", Title: "Other Commands:"},
+	)
+
+	// Cloud Sync Commands (original session-conflux)
+	syncCmd.GroupID = "cloud"
+	uploadCmd.GroupID = "cloud"
+	downloadCmd.GroupID = "cloud"
+	statusCmd.GroupID = "cloud"
+	configCmd.GroupID = "cloud"
+	listCmd.GroupID = "cloud"
+
 	downloadCmd.Flags().BoolVar(&downloadAll, "all", false, "Download all remote sessions")
 	downloadCmd.Flags().StringVar(&downloadSession, "session", "", "Download specific session by key")
 
@@ -86,6 +104,27 @@ func init() {
 	rootCmd.AddCommand(uploadCmd)
 	rootCmd.AddCommand(downloadCmd)
 	rootCmd.AddCommand(listCmd)
+
+	// AgentsView Commands (Step 1 merge)
+	rootCmd.AddCommand(avcli.NewServeCommand())
+
+	// Rename agentsview 'sync' to 'file-sync' to avoid conflict with cloud sync
+	fileSyncCmd := avcli.NewFileSyncCommand()
+	fileSyncCmd.Use = "file-sync"
+	fileSyncCmd.Short = "Local file sync (index sessions into SQLite)"
+	rootCmd.AddCommand(fileSyncCmd)
+
+	rootCmd.AddCommand(avcli.NewPruneCommand())
+	rootCmd.AddCommand(avcli.NewUpdateCommand())
+	rootCmd.AddCommand(avcli.NewTokenUseCommand())
+	rootCmd.AddCommand(avcli.NewImportCommand())
+	rootCmd.AddCommand(avcli.NewProjectsCommand())
+	rootCmd.AddCommand(avcli.NewHealthCommand())
+	rootCmd.AddCommand(avcli.NewUsageCommand())
+	rootCmd.AddCommand(avcli.NewPGCommand())
+	rootCmd.AddCommand(avcli.NewSessionCommand())
+	rootCmd.AddCommand(avcli.NewStatsCommand())
+	rootCmd.AddCommand(avcli.NewClassifierCommand())
 }
 
 func runSync(cmd *cobra.Command, args []string) {
@@ -255,7 +294,7 @@ func runSetup(cmd *cobra.Command, args []string) {
 	fmt.Println()
 	fmt.Println("Configuration saved to ~/.session-conflux/config.toml")
 	fmt.Println("Run 'session-conflux upload' to start syncing.")
-	fmt.Println("Run 'agentsview serve' to start the web viewer.")
+	fmt.Println("Run 'session-conflux serve' to start the web viewer.")
 }
 
 func setupFeishu(cfg *config.Config, reader *bufio.Reader) {

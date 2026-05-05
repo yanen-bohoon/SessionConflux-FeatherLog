@@ -1,7 +1,7 @@
 // ABOUTME: detectTransport picks between the HTTP and direct-DB
 // ABOUTME: SessionService backends based on whether a running
 // ABOUTME: agentsview daemon is discoverable via its state file.
-package main
+package avcli
 
 import (
 	"fmt"
@@ -109,7 +109,7 @@ func newService(
 		return service.NewHTTPBackend(tr.URL, cfg.AuthToken, tr.ReadOnly),
 			func() {}, nil
 	default:
-		applyClassifierConfig(cfg)
+		ApplyClassifierConfig(cfg)
 		d, err := db.Open(cfg.DBPath)
 		if err != nil {
 			return nil, nil, fmt.Errorf(

@@ -1,7 +1,7 @@
 // ABOUTME: `agentsview classifier rebuild` — clears the
 // ABOUTME: stored classifier hash so the next db.Open runs a
 // ABOUTME: full backfill. Recovery path for stale flags.
-package main
+package avcli
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"github.com/wesm/agentsview/internal/postgres"
 )
 
-func newClassifierCommand() *cobra.Command {
+func NewClassifierCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "classifier",
 		Short: "Manage the automated-session classifier",
@@ -34,11 +34,11 @@ func newClassifierCommand() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newClassifierRebuildCommand())
+	cmd.AddCommand(NewClassifierRebuildCommand())
 	return cmd
 }
 
-func newClassifierRebuildCommand() *cobra.Command {
+func NewClassifierRebuildCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rebuild",
 		Short: "Force is_automated re-backfill on next open",
@@ -54,7 +54,7 @@ func newClassifierRebuildCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
-			applyClassifierConfig(cfg)
+			ApplyClassifierConfig(cfg)
 			tr, err := detectTransport(cfg.DataDir, 0)
 			if err != nil {
 				return err
@@ -62,7 +62,7 @@ func newClassifierRebuildCommand() *cobra.Command {
 			if err := guardClassifierRebuild(tr); err != nil {
 				return err
 			}
-			return runClassifierRebuild(
+			return RunClassifierRebuild(
 				cmd.Context(), cfg, cmd.OutOrStdout(),
 			)
 		},
@@ -90,11 +90,11 @@ func guardClassifierRebuild(tr transport) error {
 	return nil
 }
 
-// runClassifierRebuild prints the loaded user-prefix list,
+// RunClassifierRebuild prints the loaded user-prefix list,
 // deletes the classifier hash from SQLite stats, and (if PG
 // is configured) deletes it from PG sync_metadata. Returns
 // an error on PG delete failure when PG is configured.
-func runClassifierRebuild(
+func RunClassifierRebuild(
 	ctx context.Context, cfg config.Config, out io.Writer,
 ) error {
 	prefixes := db.UserAutomationPrefixes()
@@ -154,14 +154,14 @@ func clearSQLiteClassifierHash(dbPath string) error {
 }
 
 // clearPGClassifierHash takes the full cfg so the static
-// guardrail (Task 7) sees an applyClassifierConfig call in
+// guardrail (Task 7) sees an ApplyClassifierConfig call in
 // the same enclosing body as the postgres.Open trigger.
 // The helper is silent and idempotent, so calling it again
 // here on top of the RunE-closure call is harmless.
 func clearPGClassifierHash(
 	ctx context.Context, cfg config.Config, pgCfg config.PGConfig,
 ) error {
-	applyClassifierConfig(cfg)
+	ApplyClassifierConfig(cfg)
 	pg, err := postgres.Open(
 		pgCfg.URL, pgCfg.Schema, pgCfg.AllowInsecure,
 	)

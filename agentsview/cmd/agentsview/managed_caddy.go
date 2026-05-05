@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -83,7 +83,7 @@ func rewriteConfiguredPublicURLPort(
 	return updatedURL, updatedOrigins, true, nil
 }
 
-func validateServeConfig(cfg config.Config) error {
+func ValidateServeConfig(cfg config.Config) error {
 	if cfg.Proxy.Mode == "" {
 		return nil
 	}

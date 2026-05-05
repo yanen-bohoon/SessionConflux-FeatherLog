@@ -1,6 +1,6 @@
 // ABOUTME: `session list` subcommand — lists sessions with the
 // ABOUTME: full set of HTTP query-param equivalents as CLI flags.
-package main
+package avcli
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newSessionListCommand() *cobra.Command {
+func NewSessionListCommand() *cobra.Command {
 	var (
 		project, excludeProject, machine, agent string
 		date, dateFrom, dateTo, activeSince     string

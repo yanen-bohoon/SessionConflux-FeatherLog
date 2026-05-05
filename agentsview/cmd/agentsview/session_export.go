@@ -1,7 +1,7 @@
 // ABOUTME: `session export <id>` subcommand — streams the raw source
 // ABOUTME: JSONL file for a locally-synced session. Local-only by
 // ABOUTME: design; bypasses the SessionService layer.
-package main
+package avcli
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/wesm/agentsview/internal/db"
 )
 
-func newSessionExportCommand() *cobra.Command {
+func NewSessionExportCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "export <id>",
 		Short:        "Stream the raw source JSONL for a session (local only)",
@@ -34,7 +34,7 @@ func newSessionExportCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
-			applyClassifierConfig(cfg)
+			ApplyClassifierConfig(cfg)
 			d, err := db.Open(cfg.DBPath)
 			if err != nil {
 				return fmt.Errorf("open local archive: %w", err)

@@ -1,7 +1,7 @@
 // ABOUTME: `session tool-calls <id>` subcommand — flattens every
 // ABOUTME: tool call in a session into a JSON list or tab-aligned
 // ABOUTME: human table.
-package main
+package avcli
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newSessionToolCallsCommand() *cobra.Command {
+func NewSessionToolCallsCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "tool-calls <id>",
 		Short:        "List tool calls made during a session",

@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -11,23 +11,23 @@ import (
 	"github.com/wesm/agentsview/internal/db"
 )
 
-func runProjects(jsonOutput bool) {
+func RunProjects(jsonOutput bool) {
 	appCfg, err := config.LoadMinimal()
 	if err != nil {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
-		fatal("opening database: %v", err)
+		Fatal("opening database: %v", err)
 	}
 	defer database.Close()
 
 	ctx := context.Background()
 	projects, err := database.GetProjects(ctx, false, false)
 	if err != nil {
-		fatal("listing projects: %v", err)
+		Fatal("listing projects: %v", err)
 	}
 
 	if jsonOutput {
@@ -37,7 +37,7 @@ func runProjects(jsonOutput bool) {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(projects); err != nil {
-			fatal("encoding json: %v", err)
+			Fatal("encoding json: %v", err)
 		}
 		return
 	}

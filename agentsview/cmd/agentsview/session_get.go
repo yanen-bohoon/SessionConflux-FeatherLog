@@ -1,6 +1,6 @@
 // ABOUTME: `session get <id>` subcommand — prints session detail
 // ABOUTME: in human or JSON format.
-package main
+package avcli
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/wesm/agentsview/internal/service"
 )
 
-func newSessionGetCommand() *cobra.Command {
+func NewSessionGetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "get <id>",
 		Short:        "Get session metadata and signals",

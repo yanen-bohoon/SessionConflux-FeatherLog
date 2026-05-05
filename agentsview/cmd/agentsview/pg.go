@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -26,14 +26,14 @@ type PGPushConfig struct {
 	AllProjects     bool
 }
 
-func runPGPush(cfg PGPushConfig) {
+func RunPGPush(cfg PGPushConfig) {
 	if cfg.ProjectsFlag != "" && cfg.ExcludeProjects != "" {
-		fatal("pg push: --projects and --exclude-projects " +
+		Fatal("pg push: --projects and --exclude-projects " +
 			"are mutually exclusive")
 	}
 	if cfg.AllProjects &&
 		(cfg.ProjectsFlag != "" || cfg.ExcludeProjects != "") {
-		fatal("pg push: --all-projects cannot be combined " +
+		Fatal("pg push: --all-projects cannot be combined " +
 			"with --projects or --exclude-projects")
 	}
 
@@ -44,14 +44,14 @@ func runPGPush(cfg PGPushConfig) {
 	if err := os.MkdirAll(appCfg.DataDir, 0o755); err != nil {
 		log.Fatalf("creating data dir: %v", err)
 	}
-	setupLogFile(appCfg.DataDir)
+	SetupLogFile(appCfg.DataDir)
 
 	pgCfg, err := appCfg.ResolvePG()
 	if err != nil {
-		fatal("pg push: %v", err)
+		Fatal("pg push: %v", err)
 	}
 	if pgCfg.URL == "" {
-		fatal("pg push: url not configured")
+		Fatal("pg_push: url not configured")
 	}
 
 	// CLI flags override config values entirely. When either
@@ -74,14 +74,14 @@ func runPGPush(cfg PGPushConfig) {
 	}
 
 	if len(projects) > 0 && len(excludeProjects) > 0 {
-		fatal("pg push: projects and exclude_projects " +
+		Fatal("pg push: projects and exclude_projects " +
 			"are mutually exclusive")
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
-		fatal("opening database: %v", err)
+		Fatal("opening database: %v", err)
 	}
 	defer database.Close()
 
@@ -90,7 +90,7 @@ func runPGPush(cfg PGPushConfig) {
 			appCfg.CursorSecret,
 		)
 		if decErr != nil {
-			fatal("invalid cursor secret: %v", decErr)
+			Fatal("invalid cursor secret: %v", decErr)
 		}
 		database.SetCursorSecret(secret)
 	}
@@ -99,7 +99,7 @@ func runPGPush(cfg PGPushConfig) {
 	// are available for push. If a full resync was performed
 	// (e.g. due to data version change), force a full PG push
 	// since watermarks become stale after a local rebuild.
-	didResync := runLocalSync(appCfg, database, cfg.Full)
+	didResync := RunLocalSync(appCfg, database, cfg.Full)
 	forceFull := cfg.Full || didResync
 
 	fmt.Println("Connecting to PostgreSQL...")
@@ -113,7 +113,7 @@ func runPGPush(cfg PGPushConfig) {
 		},
 	)
 	if err != nil {
-		fatal("pg push: %v", err)
+		Fatal("pg push: %v", err)
 	}
 	defer ps.Close()
 	fmt.Printf(
@@ -129,7 +129,7 @@ func runPGPush(cfg PGPushConfig) {
 	fmt.Println("Preparing PostgreSQL schema...")
 	schemaStart := time.Now()
 	if err := ps.EnsureSchema(ctx); err != nil {
-		fatal("pg push schema: %v", err)
+		Fatal("pg push schema: %v", err)
 	}
 	fmt.Printf(
 		"PostgreSQL schema ready in %s\n",
@@ -147,7 +147,7 @@ func runPGPush(cfg PGPushConfig) {
 	)
 	fmt.Print("\r\033[K") // clear progress line
 	if err != nil {
-		fatal("pg push: %v", err)
+		Fatal("pg push: %v", err)
 	}
 	fmt.Printf(
 		"Pushed %d sessions, %d messages in %s\n",
@@ -156,12 +156,12 @@ func runPGPush(cfg PGPushConfig) {
 		result.Duration.Round(time.Millisecond),
 	)
 	if result.Errors > 0 {
-		fatal("pg push: %d session(s) failed",
+		Fatal("pg push: %d session(s) failed",
 			result.Errors)
 	}
 }
 
-func runPGStatus() {
+func RunPGStatus() {
 	appCfg, err := config.LoadMinimal()
 	if err != nil {
 		log.Fatalf("loading config: %v", err)
@@ -169,21 +169,21 @@ func runPGStatus() {
 	if err := os.MkdirAll(appCfg.DataDir, 0o755); err != nil {
 		log.Fatalf("creating data dir: %v", err)
 	}
-	setupLogFile(appCfg.DataDir)
+	SetupLogFile(appCfg.DataDir)
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
-		fatal("opening database: %v", err)
+		Fatal("opening database: %v", err)
 	}
 	defer database.Close()
 
 	pgCfg, err := appCfg.ResolvePG()
 	if err != nil {
-		fatal("pg status: %v", err)
+		Fatal("pg status: %v", err)
 	}
 	if pgCfg.URL == "" {
-		fatal("pg status: url not configured")
+		Fatal("pg status: url not configured")
 	}
 
 	ps, err := postgres.New(
@@ -192,7 +192,7 @@ func runPGStatus() {
 		postgres.SyncOptions{},
 	)
 	if err != nil {
-		fatal("pg status: %v", err)
+		Fatal("pg status: %v", err)
 	}
 	defer ps.Close()
 
@@ -203,7 +203,7 @@ func runPGStatus() {
 
 	status, err := ps.Status(ctx)
 	if err != nil {
-		fatal("pg status: %v", err)
+		Fatal("pg status: %v", err)
 	}
 	fmt.Printf("Machine:     %s\n", status.Machine)
 	fmt.Printf("Last push:   %s\n",
@@ -227,33 +227,33 @@ func loadPGServeConfig(cmd *cobra.Command) (config.Config, string, error) {
 	return cfg, basePath, nil
 }
 
-func runPGServe(appCfg config.Config, basePath string) {
-	setupLogFile(appCfg.DataDir)
+func RunPGServe(appCfg config.Config, basePath string) {
+	SetupLogFile(appCfg.DataDir)
 	// Generate auth token when auth is explicitly required.
 	if appCfg.RequireAuth {
 		if err := appCfg.EnsureAuthToken(); err != nil {
-			fatal("pg serve: generating auth token: %v", err)
+			Fatal("pg serve: generating auth token: %v", err)
 		}
 	}
 
-	if err := validateServeConfig(appCfg); err != nil {
-		fatal("invalid serve config: %v", err)
+	if err := ValidateServeConfig(appCfg); err != nil {
+		Fatal("invalid serve config: %v", err)
 	}
 
 	pgCfg, err := appCfg.ResolvePG()
 	if err != nil {
-		fatal("pg serve: %v", err)
+		Fatal("pg serve: %v", err)
 	}
 	if pgCfg.URL == "" {
-		fatal("pg serve: url not configured")
+		Fatal("pg serve: url not configured")
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	store, err := postgres.NewStore(
 		pgCfg.URL, pgCfg.Schema, pgCfg.AllowInsecure,
 	)
 	if err != nil {
-		fatal("pg serve: %v", err)
+		Fatal("pg serve: %v", err)
 	}
 	defer store.Close()
 
@@ -277,25 +277,25 @@ func runPGServe(appCfg config.Config, basePath string) {
 		ctx, store.DB(), pgCfg.Schema,
 	); err != nil {
 		if !postgres.IsReadOnlyError(err) {
-			fatal("pg serve: schema migration failed: %v", err)
+			Fatal("pg serve: schema migration failed: %v", err)
 		}
 	}
 
 	if err := postgres.CheckSchemaCompat(
 		ctx, store.DB(),
 	); err != nil {
-		fatal("pg serve: schema incompatible: %v\n"+
+		Fatal("pg serve: schema incompatible: %v\n"+
 			"Drop and recreate the PG schema, then run "+
 			"'agentsview pg push --full' to repopulate.", err)
 	}
 
-	rtOpts := serveRuntimeOptions{
+	rtOpts := ServeRuntimeOptions{
 		Mode:          "pg-serve",
 		RequestedPort: appCfg.Port,
 	}
-	appCfg, err = prepareServeRuntimeConfig(appCfg, rtOpts)
+	appCfg, err = PrepareServeRuntimeConfig(appCfg, rtOpts)
 	if err != nil {
-		fatal("pg serve: %v", err)
+		Fatal("pg serve: %v", err)
 	}
 
 	opts := []server.Option{
@@ -312,7 +312,7 @@ func runPGServe(appCfg config.Config, basePath string) {
 	}
 	srv := server.New(appCfg, store, nil, opts...)
 
-	rt, err := startServerWithOptionalCaddy(
+	rt, err := StartServerWithOptionalCaddy(
 		ctx,
 		appCfg,
 		srv,
@@ -322,7 +322,7 @@ func runPGServe(appCfg config.Config, basePath string) {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		fatal("pg serve: %v", err)
+		Fatal("pg serve: %v", err)
 	}
 
 	// Write the state file so CLI commands can discover this
@@ -345,21 +345,21 @@ func runPGServe(appCfg config.Config, basePath string) {
 	}
 	if rt.PublicURL == rt.LocalURL {
 		fmt.Printf(
-			"agentsview %s (pg read-only) at %s\n",
+			"session-conflux %s (pg read-only) at %s\n",
 			version,
 			rt.LocalURL,
 		)
 	} else {
 		fmt.Printf(
-			"agentsview %s (pg read-only) backend at %s, public at %s\n",
+			"session-conflux %s (pg read-only) backend at %s, public at %s\n",
 			version,
 			rt.LocalURL,
 			rt.PublicURL,
 		)
 	}
 
-	if err := waitForServerRuntime(ctx, srv, rt); err != nil {
-		fatal("pg serve: %v", err)
+	if err := WaitForServerRuntime(ctx, srv, rt); err != nil {
+		Fatal("pg serve: %v", err)
 	}
 }
 

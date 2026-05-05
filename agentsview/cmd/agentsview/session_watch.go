@@ -1,6 +1,6 @@
 // ABOUTME: `session watch <id>` subcommand — streams NDJSON events
 // ABOUTME: describing session updates until the context is cancelled.
-package main
+package avcli
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSessionWatchCommand() *cobra.Command {
+func NewSessionWatchCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:          "watch <id>",
 		Short:        "Stream NDJSON events as the session updates",

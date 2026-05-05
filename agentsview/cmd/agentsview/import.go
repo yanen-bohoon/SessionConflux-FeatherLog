@@ -1,4 +1,4 @@
-package main
+package avcli
 
 import (
 	"context"
@@ -18,13 +18,13 @@ type ImportConfig struct {
 	Path string
 }
 
-func runImport(cfg ImportConfig) {
+func RunImport(cfg ImportConfig) {
 	appCfg, err := config.LoadMinimal()
 	if err != nil {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	applyClassifierConfig(appCfg)
+	ApplyClassifierConfig(appCfg)
 	database, err := db.Open(appCfg.DBPath)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
@@ -46,10 +46,10 @@ func runImport(cfg ImportConfig) {
 
 	switch cfg.Type {
 	case "claude-ai":
-		stats, err = runClaudeAIImport(ctx, database, dir)
+		stats, err = RunClaudeAIImport(ctx, database, dir)
 	case "chatgpt":
 		assetsDir := filepath.Join(appCfg.DataDir, "assets")
-		stats, err = runChatGPTImport(
+		stats, err = RunChatGPTImport(
 			ctx, database, dir, assetsDir,
 		)
 	default:
@@ -71,7 +71,7 @@ func runImport(cfg ImportConfig) {
 	}
 }
 
-func runClaudeAIImport(
+func RunClaudeAIImport(
 	ctx context.Context, database *db.DB, path string,
 ) (importer.ImportStats, error) {
 	jsonPath := path
@@ -109,7 +109,7 @@ func runClaudeAIImport(
 	)
 }
 
-func runChatGPTImport(
+func RunChatGPTImport(
 	ctx context.Context, database *db.DB,
 	dir, assetsDir string,
 ) (importer.ImportStats, error) {

@@ -1,7 +1,7 @@
 // ABOUTME: terminal-output hardening for session CLI commands.
 // ABOUTME: Strips C0/C1 control bytes before printing so session
 // ABOUTME: text cannot spoof terminal state via escape sequences.
-package main
+package avcli
 
 import (
 	"strings"
