@@ -3,7 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TAURI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$TAURI_DIR/.." && pwd)"
+# agentsview/desktop/ -> agentsview/ -> SessionConflux-FeatherLog/
+REPO_ROOT="$(cd "$TAURI_DIR/../.." && pwd)"
+AV_MODULE_ROOT="$(cd "$TAURI_DIR/.." && pwd)"
 
 detect_host_triple() {
   if ! command -v rustc >/dev/null 2>&1; then
@@ -145,13 +147,13 @@ main() {
   fi
 
   (
-    cd "$REPO_ROOT/frontend"
+    cd "$AV_MODULE_ROOT/frontend"
     install_frontend_deps
     npm run build
   )
 
-  rm -rf "$REPO_ROOT/internal/web/dist"
-  cp -r "$REPO_ROOT/frontend/dist" "$REPO_ROOT/internal/web/dist"
+  rm -rf "$AV_MODULE_ROOT/internal/web/dist"
+  cp -r "$AV_MODULE_ROOT/frontend/dist" "$AV_MODULE_ROOT/internal/web/dist"
 
   ext=""
   if [[ "$target_triple" == *"windows"* ]]; then

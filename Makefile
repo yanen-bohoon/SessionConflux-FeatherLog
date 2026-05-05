@@ -37,5 +37,5 @@ release:
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags fts5 -ldflags "$(LDFLAGS)" -o $(BIN)_windows_amd64.exe ./cmd/session-conflux/
 
 clean:
-	rm -f $(BIN) agentsview
+	rm -f $(BIN)
 	rm -f $(BIN)_darwin_arm64 $(BIN)_darwin_amd64 $(BIN)_linux_amd64 $(BIN)_windows_amd64.exe
