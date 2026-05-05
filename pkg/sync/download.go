@@ -71,9 +71,47 @@ func ListRemoteSessions(t transport.Transport) ([]RemoteSession, error) {
 	return sessions, nil
 }
 
+// DownloadSessionsForHost downloads sessions from a single remote machine.
+func DownloadSessionsForHost(t transport.Transport, hostname string, findAgentDir func(string) string, onProgress ProgressFunc) (int, error) {
+	st, err := state.Load()
+	if err != nil {
+		return 0, fmt.Errorf("load state: %w", err)
+	}
+
+	onProgress.Report("listing", 0, 0, "")
+
+	l3Files, err := t.ListFiles(hostname)
+	if err != nil {
+		return 0, fmt.Errorf("list host %s: %w", hostname, err)
+	}
+
+	downloaded := 0
+	now := time.Now().UTC()
+
+	fmt.Printf("Machine: %s\n", hostname)
+	onProgress.Report("downloading", 0, 0, hostname)
+
+	for _, l3 := range l3Files {
+		if !l3.IsDir {
+			continue
+		}
+		switch l3.Name {
+		case "baseline":
+			n := downloadBaseline(t, hostname, hostname+"/baseline", st, now, findAgentDir, onProgress)
+			downloaded += n
+		case "incremental":
+			n := downloadIncremental(t, hostname, hostname+"/incremental", st, now, findAgentDir, onProgress)
+			downloaded += n
+		}
+	}
+
+	st.Save()
+	return downloaded, nil
+}
+
 // DownloadAllSessions downloads from all machines: baseline bundles + incremental files.
 // Skips the local machine to avoid downloading its own sessions back.
-func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string) (int, error) {
+func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string, onProgress ProgressFunc) (int, error) {
 	st, err := state.Load()
 	if err != nil {
 		return 0, fmt.Errorf("load state: %w", err)
@@ -81,6 +119,7 @@ func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string
 
 	localHost, _ := os.Hostname()
 
+	onProgress.Report("listing", 0, 0, "")
 	hosts, err := t.ListFiles("")
 	if err != nil {
 		return 0, err
@@ -100,6 +139,7 @@ func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string
 		}
 
 		fmt.Printf("Machine: %s\n", host.Name)
+		onProgress.Report("downloading", 0, 0, host.Name)
 
 		l3Files, err := t.ListFiles(host.Name)
 		if err != nil {
@@ -112,10 +152,10 @@ func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string
 			}
 			switch l3.Name {
 			case "baseline":
-				n := downloadBaseline(t, host.Name, host.Name+"/baseline", st, now, findAgentDir)
+				n := downloadBaseline(t, host.Name, host.Name+"/baseline", st, now, findAgentDir, onProgress)
 				downloaded += n
 			case "incremental":
-				n := downloadIncremental(t, host.Name, host.Name+"/incremental", st, now, findAgentDir)
+				n := downloadIncremental(t, host.Name, host.Name+"/incremental", st, now, findAgentDir, onProgress)
 				downloaded += n
 			}
 		}
@@ -125,7 +165,7 @@ func DownloadAllSessions(t transport.Transport, findAgentDir func(string) string
 	return downloaded, nil
 }
 
-func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *state.Store, now time.Time, findAgentDir func(string) string) int {
+func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *state.Store, now time.Time, findAgentDir func(string) string, onProgress ProgressFunc) int {
 	files, err := t.ListFiles(baselinePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list baseline: %v\n", err)
@@ -154,7 +194,6 @@ func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *
 	// Sort for deterministic order.
 	sorted := make([]string, len(partNames))
 	copy(sorted, partNames)
-	// Simple bubble sort since part count is tiny.
 	for i := 0; i < len(sorted); i++ {
 		for j := i + 1; j < len(sorted); j++ {
 			if sorted[i] > sorted[j] {
@@ -167,6 +206,7 @@ func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *
 	for i, name := range sorted {
 		label := fmt.Sprintf("Baseline: [%d/%d] %s", i+1, len(sorted), name)
 		fmt.Printf("\r  %s", label)
+		onProgress.Report("downloading", i+1, len(sorted), hostname+" baseline")
 		data, err := t.DownloadFile(baselinePath + "/" + name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\n  WARN: download %s: %v\n", name, err)
@@ -182,6 +222,7 @@ func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *
 	}
 
 	fmt.Printf("  Extracting baseline (%d KB)...\n", len(allData)/1024)
+	onProgress.Report("extracting", 0, 0, hostname+" baseline")
 	entries, err := bundle.Unpack(allData)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  FAIL unpack: %v\n", err)
@@ -209,7 +250,7 @@ func downloadBaseline(t transport.Transport, hostname, baselinePath string, st *
 	return n
 }
 
-func downloadIncremental(t transport.Transport, hostname, incrPath string, st *state.Store, now time.Time, findAgentDir func(string) string) int {
+func downloadIncremental(t transport.Transport, hostname, incrPath string, st *state.Store, now time.Time, findAgentDir func(string) string, onProgress ProgressFunc) int {
 	files, err := t.ListFiles(incrPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  WARN: list incremental: %v\n", err)
@@ -225,6 +266,7 @@ func downloadIncremental(t transport.Transport, hostname, incrPath string, st *s
 
 	sessionCount := 0
 	skipped := 0
+	processed := 0
 	for _, f := range files {
 		if !strings.HasSuffix(f.Name, ".jsonl.zst") {
 			continue
@@ -243,12 +285,16 @@ func downloadIncremental(t transport.Transport, hostname, incrPath string, st *s
 
 		if !st.NeedsDownload(dlKey, f.Name) {
 			skipped++
+			processed++
+			onProgress.Report("downloading", processed, total, hostname+" (skipped)")
 			continue
 		}
 
+		processed++
 		label := fmt.Sprintf("%s/%s.jsonl.zst", agent, sessionID)
 		fmt.Printf("\r  Incremental: [%d/%d] %s",
-			sessionCount+skipped+1, total, label)
+			processed, total, label)
+		onProgress.Report("downloading", processed, total, hostname+"/"+label)
 		data, err := t.DownloadFile(incrPath + "/" + f.Name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\n  WARN: download %s: %v\n", dlKey, err)

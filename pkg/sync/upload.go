@@ -14,6 +14,18 @@ import (
 	"github.com/yanen-bohoon/session-conflux/pkg/transport"
 )
 
+// ProgressFunc receives phase, current/total counts, and optional detail.
+// phase: "scanning", "reading", "compressing", "uploading", "listing", "downloading", "extracting", "writing"
+// current/total may be 0/0 for indeterminate phases.
+type ProgressFunc func(phase string, current, total int, detail string)
+
+// Report calls f if non-nil, making ProgressFunc nil-safe for callers.
+func (f ProgressFunc) Report(phase string, current, total int, detail string) {
+	if f != nil {
+		f(phase, current, total, detail)
+	}
+}
+
 type UploadStats struct {
 	Total   int `json:"total"`
 	Synced  int `json:"synced"`
@@ -40,7 +52,7 @@ func FileFromDiscovered(path, agent string, size, mtime int64) SyncFile {
 	}
 }
 
-func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile) (*UploadStats, error) {
+func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile, onProgress ProgressFunc) (*UploadStats, error) {
 	hostname, _ := os.Hostname()
 
 	// Ensure host folder exists.
@@ -53,9 +65,9 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 		return nil, fmt.Errorf("baseline folder: %w", err)
 	}
 
-	if !baselineHasFiles(t, baselinePath) {
-		fmt.Println("First run — uploading baseline bundle...")
-		n, err := uploadBaseline(t, hostname, baselinePath, files, cfg.Compression.Level)
+	if len(st.All()) == 0 {
+		fmt.Println("First upload — uploading baseline bundle...")
+		n, err := uploadBaseline(t, hostname, baselinePath, files, cfg.Compression.Level, onProgress)
 		if err != nil {
 			return nil, err
 		}
@@ -67,45 +79,41 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 		return nil, fmt.Errorf("incremental folder: %w", err)
 	}
 
+	onProgress.Report("scanning", 0, 0, "")
 	fmt.Println("Scanning for changes...")
-	return uploadIncremental(t, incrPath, hostname, files, st, cfg.Compression.Level)
+	return uploadIncremental(t, incrPath, hostname, files, st, cfg.Compression.Level, onProgress)
 }
 
-func baselineHasFiles(t transport.Transport, folderPath string) bool {
-	files, _ := t.ListFiles(folderPath)
-	for _, f := range files {
-		if f.Name == bundle.BundleFileName || strings.HasPrefix(f.Name, bundle.BundleFileName+".") {
-			return true
-		}
-	}
-	return false
-}
-
-func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, level int) (int, error) {
+func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, level int, onProgress ProgressFunc) (int, error) {
 	fmt.Printf("Packing %d files...\n", len(files))
 
 	sessionData := make(map[string][]byte)
+	onProgress.Report("reading", 0, len(files), "")
 	for i, f := range files {
 		if i > 0 && i%50 == 0 {
 			fmt.Printf("  reading %d/%d...\n", i, len(files))
+			onProgress.Report("reading", i, len(files), "")
 		}
 		data, err := os.ReadFile(f.Path)
 		if err != nil {
 			continue
 		}
-		// Derive session ID from filename
 		sessionID := strings.TrimSuffix(filepath.Base(f.Path), ".jsonl")
 		key := filepath.Join(hostname, f.Agent, sessionID+".jsonl")
 		sessionData[key] = data
 	}
+	onProgress.Report("reading", len(files), len(files), "")
 
 	fmt.Printf("  compressing %d sessions...\n", len(sessionData))
+	onProgress.Report("compressing", 0, 0, fmt.Sprintf("%d sessions", len(sessionData)))
 	archive, err := bundle.Pack(sessionData, level)
 	if err != nil {
 		return 0, fmt.Errorf("pack: %w", err)
 	}
 
-	fmt.Printf("  archive: %d KB\n", len(archive)/1024)
+	archiveKB := len(archive) / 1024
+	fmt.Printf("  archive: %d KB\n", archiveKB)
+	onProgress.Report("compressing", 0, 0, fmt.Sprintf("%d KB", archiveKB))
 
 	// Clean old parts.
 	oldFiles, _ := t.ListFiles(baselinePath)
@@ -115,6 +123,7 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 
 	chunkSize := int(t.MaxChunkSize())
 	if chunkSize <= 0 || len(archive) <= chunkSize {
+		onProgress.Report("uploading", 0, 0, "baseline bundle")
 		if err := t.UploadFile(baselinePath, bundle.BundleFileName, archive); err != nil {
 			return 0, fmt.Errorf("upload: %w", err)
 		}
@@ -129,6 +138,7 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 				end = len(archive)
 			}
 			name := fmt.Sprintf("%s.part%02d", bundle.BundleFileName, i+1)
+			onProgress.Report("uploading", i+1, parts, fmt.Sprintf("part %d/%d", i+1, parts))
 			if err := t.UploadFile(baselinePath, name, archive[start:end]); err != nil {
 				return 0, fmt.Errorf("upload part %d: %w", i+1, err)
 			}
@@ -139,8 +149,9 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 	return len(files), nil
 }
 
-func uploadIncremental(t transport.Transport, incrPath, hostname string, files []SyncFile, st *state.Store, level int) (*UploadStats, error) {
+func uploadIncremental(t transport.Transport, incrPath, hostname string, files []SyncFile, st *state.Store, level int, onProgress ProgressFunc) (*UploadStats, error) {
 	stats := &UploadStats{Total: len(files)}
+	processed := 0
 
 	for _, f := range files {
 		sessionID := strings.TrimSuffix(filepath.Base(f.Path), ".jsonl")
@@ -148,6 +159,8 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, files [
 
 		if !st.HasChanged(key, f.Size, f.Mtime) {
 			stats.Skipped++
+			processed++
+			onProgress.Report("uploading", processed, len(files), key+" (skipped)")
 			continue
 		}
 
@@ -155,6 +168,8 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, files [
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  WARN: skip %s: %v\n", key, err)
 			stats.Failed++
+			processed++
+			onProgress.Report("uploading", processed, len(files), key+" (failed)")
 			continue
 		}
 
@@ -162,6 +177,8 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, files [
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  WARN: compress %s: %v\n", key, err)
 			stats.Failed++
+			processed++
+			onProgress.Report("uploading", processed, len(files), key+" (failed)")
 			continue
 		}
 
@@ -171,11 +188,15 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, files [
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  FAIL: upload %s: %v\n", key, err)
 			stats.Failed++
+			processed++
+			onProgress.Report("uploading", processed, len(files), key+" (failed)")
 			continue
 		}
 
 		st.MarkUploaded(key, f.Size, f.Mtime, "", time.Now().UTC())
 		stats.Synced++
+		processed++
+		onProgress.Report("uploading", processed, len(files), f.Agent+"/"+sessionID)
 		fmt.Printf("  OK: %s (%d KB)\n", key, len(data)/1024)
 	}
 
