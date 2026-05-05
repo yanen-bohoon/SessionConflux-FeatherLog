@@ -66,7 +66,20 @@ jobs:
             desktop/src-tauri/tauri.conf.json
           rm -f desktop/src-tauri/tauri.conf.json.bak
 
+      - name: Check if Apple signing is available
+        id: apple_signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "${APPLE_CERTIFICATE:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Apple signing not configured — building unsigned app"
+          fi
+
       - name: Import signing certificate
+        if: steps.apple_signing.outputs.available == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -93,6 +106,7 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
 
       - name: Write API key
+        if: steps.apple_signing.outputs.available == 'true'
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -112,7 +126,13 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           AGENTSVIEW_UPDATER_PUBKEY: ${{ secrets.AGENTSVIEW_UPDATER_PUBKEY }}
-        run: npx tauri build --target "$AGENTSVIEW_TARGET_TRIPLE"
+        run: |
+          if [ "${{ steps.apple_signing.outputs.available }}" = "false" ]; then
+            npx tauri build --target "$AGENTSVIEW_TARGET_TRIPLE" \
+              --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          else
+            npx tauri build --target "$AGENTSVIEW_TARGET_TRIPLE"
+          fi
         working-directory: desktop
 
       - name: Collect build artifacts
@@ -121,13 +141,17 @@ jobs:
           mkdir -p staging
           cp "$bundle_dir"/dmg/*.dmg staging/
 
-          app_bundle="$(find "$bundle_dir"/macos -maxdepth 1 -name '*.app.tar.gz' -print -quit)"
-          app_sig="$(find "$bundle_dir"/macos -maxdepth 1 -name '*.app.tar.gz.sig' -print -quit)"
+          app_bundle="$(find "$bundle_dir"/macos -maxdepth 1 -name '*.app.tar.gz' -print -quit || true)"
+          if [ -n "$app_bundle" ]; then
+            app_name="$(basename "$app_bundle")"
+            cp "$app_bundle" "staging/${app_name%.app.tar.gz}_${{ matrix.arch }}.app.tar.gz"
 
-          app_name="$(basename "$app_bundle")"
-          app_sig_name="$(basename "$app_sig")"
-          cp "$app_bundle" "staging/${app_name%.app.tar.gz}_${{ matrix.arch }}.app.tar.gz"
-          cp "$app_sig" "staging/${app_sig_name%.app.tar.gz.sig}_${{ matrix.arch }}.app.tar.gz.sig"
+            app_sig="$(find "$bundle_dir"/macos -maxdepth 1 -name '*.app.tar.gz.sig' -print -quit || true)"
+            if [ -n "$app_sig" ]; then
+              app_sig_name="$(basename "$app_sig")"
+              cp "$app_sig" "staging/${app_sig_name%.app.tar.gz.sig}_${{ matrix.arch }}.app.tar.gz.sig"
+            fi
+          fi
           ls -la staging/
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
@@ -393,47 +417,29 @@ jobs:
             fi
           done
 
-          if [ -z "$MACOS_AARCH64_SIG" ] || [ -z "$MACOS_AARCH64_URL" ]; then
-            echo "error: missing macOS aarch64 updater signature or URL" >&2
-            exit 1
+          # At least one platform must have updater artifacts.
+          if [ -z "$MACOS_AARCH64_SIG" ] && [ -z "$MACOS_X86_64_SIG" ] && [ -z "$WINDOWS_SIG" ] && [ -z "$LINUX_SIG" ]; then
+            echo "No updater artifacts found — skipping latest.json generation."
+            echo "SKIP_UPDATER=true" >> "$GITHUB_ENV"
+            exit 0
           fi
-          if [ -z "$MACOS_X86_64_SIG" ] || [ -z "$MACOS_X86_64_URL" ]; then
-            echo "error: missing macOS x86_64 updater signature or URL" >&2
-            exit 1
-          fi
-          if [ -z "$WINDOWS_SIG" ] || [ -z "$WINDOWS_URL" ]; then
-            echo "error: missing Windows updater signature or URL" >&2
-            exit 1
-          fi
-          if [ -z "$LINUX_SIG" ] || [ -z "$LINUX_URL" ]; then
-            echo "error: missing Linux updater signature or URL" >&2
-            exit 1
-          fi
+          echo "SKIP_UPDATER=false" >> "$GITHUB_ENV"
 
-          cat > artifacts/latest.json << MANIFEST
-          {
-            "version": "${VERSION}",
-            "pub_date": "${DATE}",
-            "platforms": {
-              "darwin-aarch64": {
-                "url": "${MACOS_AARCH64_URL}",
-                "signature": "${MACOS_AARCH64_SIG}"
-              },
-              "darwin-x86_64": {
-                "url": "${MACOS_X86_64_URL}",
-                "signature": "${MACOS_X86_64_SIG}"
-              },
-              "windows-x86_64": {
-                "url": "${WINDOWS_URL}",
-                "signature": "${WINDOWS_SIG}"
-              },
-              "linux-x86_64": {
-                "url": "${LINUX_URL}",
-                "signature": "${LINUX_SIG}"
-              }
-            }
-          }
-          MANIFEST
+          # Build JSON manually for platforms that have artifacts.
+          printf '{\n  "version": "%s",\n  "pub_date": "%s",\n  "platforms": {' "$VERSION" "$DATE" > artifacts/latest.json
+          FIRST=true
+          for PLATFORM in \
+            "darwin-aarch64:$MACOS_AARCH64_URL:$MACOS_AARCH64_SIG" \
+            "darwin-x86_64:$MACOS_X86_64_URL:$MACOS_X86_64_SIG" \
+            "windows-x86_64:$WINDOWS_URL:$WINDOWS_SIG" \
+            "linux-x86_64:$LINUX_URL:$LINUX_SIG"; do
+            IFS=':' read -r name url sig <<< "$PLATFORM"
+            if [ -n "$sig" ] && [ -n "$url" ]; then
+              if [ "$FIRST" = "true" ]; then FIRST=false; else printf ',\n' >> artifacts/latest.json; fi
+              printf '    "%s": {\n      "url": "%s",\n      "signature": "%s"\n    }' "$name" "$url" "$sig" >> artifacts/latest.json
+            fi
+          done
+          printf '\n  }\n}\n' >> artifacts/latest.json
 
           echo "Generated latest.json:"
           cat artifacts/latest.json
@@ -448,6 +454,7 @@ jobs:
             artifacts/SHA256SUMS-desktop
 
       - name: Upload updater artifacts
+        if: env.SKIP_UPDATER != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -460,14 +467,13 @@ jobs:
               --notes "Internal release used by the desktop auto-updater. Do not delete." \
               --prerelease
           fi
-          # Overwrite existing assets
-          gh release upload updater \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber \
-            artifacts/*.app.tar.gz \
-            artifacts/*.app.tar.gz.sig \
-            artifacts/*.nsis.zip \
-            artifacts/*.nsis.zip.sig \
-            artifacts/*.AppImage.tar.gz \
-            artifacts/*.AppImage.tar.gz.sig \
-            artifacts/latest.json
+          # Upload each file individually, skipping non-existent globs
+          shopt -s nullglob
+          files=( artifacts/*.app.tar.gz artifacts/*.app.tar.gz.sig artifacts/*.nsis.zip artifacts/*.nsis.zip.sig artifacts/*.AppImage.tar.gz artifacts/*.AppImage.tar.gz.sig artifacts/latest.json )
+          shopt -u nullglob
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload updater \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber \
+              "${files[@]}"
+          fi
