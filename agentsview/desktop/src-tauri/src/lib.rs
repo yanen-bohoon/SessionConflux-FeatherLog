@@ -121,7 +121,7 @@ fn launch_backend(app: &mut App) -> Result<(), DynError> {
 
 fn spawn_sidecar(app: &App) -> Result<(CommandRx, CommandChild), DynError> {
     let port_arg = PREFERRED_PORT.to_string();
-    let mut command = app.shell().sidecar("agentsview")?;
+    let mut command = app.shell().sidecar("session-conflux")?;
     for (key, value) in sidecar_env() {
         command = command.env(key, value);
     }
@@ -248,7 +248,7 @@ fn read_desktop_env_file() -> Vec<(OsString, OsString)> {
     let Some(home) = resolve_home_dir() else {
         return Vec::new();
     };
-    let path = home.join(".agentsview").join("desktop.env");
+    let path = home.join(".session-conflux").join("desktop.env");
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
     };
