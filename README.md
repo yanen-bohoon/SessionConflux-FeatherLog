@@ -112,11 +112,11 @@ Web 端顶栏"云同步"按钮提供可视化上传/下载/状态查看，设置
 
 ## 支持的 Agent
 
-Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp、Zencoder、iFlow、VS Code Copilot、Pi、OpenClaw、Kimi、Claude.ai、ChatGPT、Kiro、Kiro IDE、Cortex、Hermes、Warp、Positron。
+Claude Code、Codex、Gemini CLI、Copilot、Cursor、OpenCode、OpenHands、Amp、Zencoder、iFlow、VS Code Copilot、Pi、OpenClaw、Kimi、Claude.ai、ChatGPT、Kiro、Kiro IDE、Cortex、Hermes、Warp、Positron、CodeBuddy、WorkBuddy。
 
 ## 工作原理
 
-1. **扫描** — 发现 21 个 AI agent 目录下的 JSONL 会话文件
+1. **扫描** — 发现 AI agent 目录下的 JSONL 会话文件
 2. **打包** — 首次运行将所有会话打成 tar.zst 压缩包上传（基线）
 3. **增量** — 后续仅上传文件大小有变化的单个会话
 4. **下载** — 合并基线压缩包 + 增量文件，写入对应 agent 目录
