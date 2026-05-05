@@ -167,12 +167,13 @@ Web 端顶栏"云同步"按钮提供可视化上传/下载/状态查看，设置
 ```
 
 ## 配置
-
-配置统一存储在 `~/.agentsview/config.toml`：
+配置统一存储在 `~/.session-conflux/config.toml`：
 
 ```toml
 [sync]
 enabled = true
+```
+
 schedule = "02:00"
 direction = "both"
 compression_level = 3
