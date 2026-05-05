@@ -291,6 +291,76 @@ export interface SyncHandle {
   done: Promise<SyncStats>;
 }
 
+/** Read an SSE stream to completion, dispatching each frame to a callback.
+ * The dispatch receives the event name and data payload as strings.
+ * Return a value to stop the stream and resolve with that value.
+ * Return undefined to continue processing frames.
+ * Throw to reject the promise. */
+async function readSSEStream<T>(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  dispatch: (event: string, data: string) => T | undefined,
+): Promise<T> {
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    buf = buf.replaceAll("\r\n", "\n");
+
+    let idx: number;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+
+      let event = "";
+      const dataLines: string[] = [];
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event: ")) {
+          event = line.slice(7);
+        } else if (line.startsWith("data: ")) {
+          dataLines.push(line.slice(6));
+        } else if (line.startsWith("data:")) {
+          dataLines.push(line.slice(5));
+        }
+      }
+      const data = dataLines.join("\n");
+      if (!data) continue;
+
+      const result = dispatch(event, data);
+      if (result !== undefined) {
+        if (!reader.closed) reader.cancel();
+        return result;
+      }
+    }
+  }
+
+  // Flush any remaining bytes and try one last frame.
+  buf += decoder.decode();
+  buf = buf.replaceAll("\r\n", "\n").trim();
+  if (buf) {
+    let event = "";
+    const dataLines: string[] = [];
+    for (const line of buf.split("\n")) {
+      if (line.startsWith("event: ")) {
+        event = line.slice(7);
+      } else if (line.startsWith("data: ")) {
+        dataLines.push(line.slice(6));
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5));
+      }
+    }
+    const data = dataLines.join("\n");
+    if (data) {
+      const result = dispatch(event, data);
+      if (result !== undefined) return result;
+    }
+  }
+
+  throw new Error("SSE stream ended without result");
+}
+
 function streamSyncSSE(
   path: string,
   onProgress?: (p: SyncProgress) => void,
@@ -307,39 +377,16 @@ function streamSyncSSE(
       throw new Error(`Sync request failed: ${res.status}`);
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let stats: SyncStats | undefined;
-
-    for (;;) {
-      const { done: eof, value } = await reader.read();
-      if (eof) break;
-      buf += decoder.decode(value, { stream: true });
-      buf = buf.replaceAll("\r\n", "\n");
-
-      const result = processFrames(buf, onProgress);
-      if (result) {
-        stats = result;
-        reader.cancel();
-        break;
+    return readSSEStream(res.body.getReader(), (event, data) => {
+      if (event === "progress") {
+        onProgress?.(JSON.parse(data) as SyncProgress);
+        return undefined;
       }
-      const last = buf.lastIndexOf("\n\n");
-      if (last !== -1) buf = buf.slice(last + 2);
-    }
-
-    // Flush any remaining multibyte bytes from decoder
-    buf += decoder.decode();
-
-    if (!stats && buf.trim()) {
-      stats = processFrame(buf, onProgress);
-    }
-
-    if (!stats) {
-      throw new Error("Sync stream ended without done event");
-    }
-
-    return stats;
+      if (event === "done") {
+        return JSON.parse(data) as SyncStats;
+      }
+      return undefined;
+    });
   })();
 
   return { abort: () => controller.abort(), done };
@@ -357,54 +404,8 @@ export function triggerResync(
   return streamSyncSSE("/resync", onProgress);
 }
 
-/**
- * Parse all complete SSE frames in buf.
- * Returns the SyncStats if a "done" event was received, undefined otherwise.
- */
-function processFrames(
-  buf: string,
-  onProgress?: (p: SyncProgress) => void,
-): SyncStats | undefined {
-  let idx: number;
-  let start = 0;
-  while ((idx = buf.indexOf("\n\n", start)) !== -1) {
-    const frame = buf.slice(start, idx);
-    start = idx + 2;
-    const stats = processFrame(frame, onProgress);
-    if (stats) return stats;
-  }
-  return undefined;
-}
 
-/**
- * Dispatch a single SSE frame.
- * Returns the SyncStats if it was a "done" event, undefined otherwise.
- */
-function processFrame(
-  frame: string,
-  onProgress?: (p: SyncProgress) => void,
-): SyncStats | undefined {
-  let event = "";
-  const dataLines: string[] = [];
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event: ")) {
-      event = line.slice(7);
-    } else if (line.startsWith("data: ")) {
-      dataLines.push(line.slice(6));
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5));
-    }
-  }
-  const data = dataLines.join("\n");
-  if (!data) return undefined;
 
-  if (event === "progress") {
-    onProgress?.(JSON.parse(data) as SyncProgress);
-  } else if (event === "done") {
-    return JSON.parse(data) as SyncStats;
-  }
-  return undefined;
-}
 
 /** Event payload for /api/v1/events data_changed frames. */
 export interface DataChangedEvent {
@@ -852,60 +853,32 @@ function readCloudSyncSSE(
   onEvent?: (ev: CloudSyncEvent) => void,
 ): CloudSyncStream {
   const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  const abortController = new AbortController();
-  let buf = "";
-
-  const done = (async (): Promise<CloudSyncStats> => {
-    for (;;) {
-      const { done: streamDone, value } = await reader.read();
-      if (streamDone) break;
-      buf += decoder.decode(value, { stream: true });
-
-      let idx: number;
-      while ((idx = buf.indexOf("\n\n")) !== -1) {
-        const frame = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-
-        let event = "";
-        let data = "";
-        for (const line of frame.split("\n")) {
-          if (line.startsWith("event: ")) event = line.slice(7);
-          else if (line.startsWith("data: ")) data = line.slice(6);
-        }
-        if (!event || !data) continue;
-
-        const parsed = JSON.parse(data);
-        switch (event) {
-          case "started":
-            onEvent?.({ type: "started", operation: parsed.operation });
-            break;
-          case "progress":
-            onEvent?.({
-              type: "progress",
-              phase: parsed.phase,
-              current: parsed.current,
-              total: parsed.total,
-              detail: parsed.detail,
-            });
-            break;
-          case "done":
-            onEvent?.({ type: "done", stats: parsed as CloudSyncStats });
-            if (!reader.closed) reader.cancel();
-            return parsed as CloudSyncStats;
-          case "error":
-            onEvent?.({ type: "error", message: parsed.message });
-            if (!reader.closed) reader.cancel();
-            throw new Error(parsed.message);
-        }
-      }
+  const done = readSSEStream(reader, (event, data) => {
+    const parsed = JSON.parse(data);
+    switch (event) {
+      case "started":
+        onEvent?.({ type: "started", operation: parsed.operation });
+        return undefined;
+      case "progress":
+        onEvent?.({
+          type: "progress",
+          phase: parsed.phase,
+          current: parsed.current,
+          total: parsed.total,
+          detail: parsed.detail,
+        });
+        return undefined;
+      case "done":
+        onEvent?.({ type: "done", stats: parsed as CloudSyncStats });
+        return parsed as CloudSyncStats;
+      case "error":
+        onEvent?.({ type: "error", message: parsed.message });
+        throw new Error(parsed.message);
     }
-    throw new Error("Cloud sync stream ended without result");
-  })();
-
+    return undefined;
+  });
   return {
     abort() {
-      abortController.abort();
       if (!reader.closed) reader.cancel();
     },
     done,
@@ -928,24 +901,22 @@ export async function testCloudSyncConnection(): Promise<CloudSyncTestResult> {
   });
 }
 
-export function uploadCloudSync(
+function fetchCloudSyncSSE(
+  init: RequestInit,
+  path: string,
   onEvent?: (ev: CloudSyncEvent) => void,
 ): CloudSyncStream {
-  const init = authHeaders({
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  const headers = new Headers(init.headers);
+  const req = authHeaders(init);
+  const headers = new Headers(req.headers);
   headers.set("Accept", "text/event-stream");
   const ctrl = new AbortController();
-  const res = fetch(`${getBase()}/sync-cloud/upload`, {
-    ...init,
+  const res = fetch(`${getBase()}${path}`, {
+    ...req,
     headers,
     signal: ctrl.signal,
   });
   const stream = res.then((r) => {
-    if (!r.ok) throw new Error(`Upload failed (${r.status})`);
+    if (!r.ok) throw new Error(`${init.method ?? "GET"} ${path} failed (${r.status})`);
     return readCloudSyncSSE(r, onEvent);
   });
   return {
@@ -954,6 +925,20 @@ export function uploadCloudSync(
     },
     done: stream.then((s) => s.done),
   };
+}
+
+export function uploadCloudSync(
+  onEvent?: (ev: CloudSyncEvent) => void,
+): CloudSyncStream {
+  return fetchCloudSyncSSE(
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+    "/sync-cloud/upload",
+    onEvent,
+  );
 }
 
 export function downloadCloudSync(
@@ -963,56 +948,26 @@ export function downloadCloudSync(
   const url = hostname
     ? `/sync-cloud/download?hostname=${encodeURIComponent(hostname)}`
     : "/sync-cloud/download";
-  const init = authHeaders({
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "text/event-stream");
-  const ctrl = new AbortController();
-  const res = fetch(`${getBase()}${url}`, {
-    ...init,
-    headers,
-    signal: ctrl.signal,
-  });
-  const stream = res.then((r) => {
-    if (!r.ok) throw new Error(`Download failed (${r.status})`);
-    return readCloudSyncSSE(r, onEvent);
-  });
-  return {
-    abort() {
-      ctrl.abort();
+  return fetchCloudSyncSSE(
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     },
-    done: stream.then((s) => s.done),
-  };
+    url,
+    onEvent,
+  );
 }
 
 export function deleteCloudSyncRemote(
   hostname: string,
   onEvent?: (ev: CloudSyncEvent) => void,
 ): CloudSyncStream {
-  const init = authHeaders({
-    method: "DELETE",
-  });
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "text/event-stream");
-  const ctrl = new AbortController();
-  const res = fetch(`${getBase()}/sync-cloud/remote/${encodeURIComponent(hostname)}`, {
-    ...init,
-    headers,
-    signal: ctrl.signal,
-  });
-  const stream = res.then((r) => {
-    if (!r.ok) throw new Error(`Delete failed (${r.status})`);
-    return readCloudSyncSSE(r, onEvent);
-  });
-  return {
-    abort() {
-      ctrl.abort();
-    },
-    done: stream.then((s) => s.done),
-  };
+  return fetchCloudSyncSSE(
+    { method: "DELETE" },
+    `/sync-cloud/remote/${encodeURIComponent(hostname)}`,
+    onEvent,
+  );
 }
 
 /* Analytics */
@@ -1188,93 +1143,26 @@ export function generateInsight(
       throw new Error(`Generate request failed: ${res.status}`);
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let result: Insight | undefined;
-
-    for (;;) {
-      const { done: eof, value } = await reader.read();
-      if (eof) break;
-      buf += decoder.decode(value, { stream: true });
-      buf = buf.replaceAll("\r\n", "\n");
-
-      const parsed = processInsightFrames(buf, onStatus, onLog);
-      buf = parsed.remaining;
-      if (parsed.result) {
-        result = parsed.result;
-        reader.cancel();
-        break;
+    return readSSEStream(res.body.getReader(), (event, data) => {
+      if (event === "status") {
+        onStatus?.((JSON.parse(data) as { phase: string }).phase);
+        return undefined;
       }
-    }
-
-    // Flush any remaining multibyte bytes from decoder
-    buf += decoder.decode();
-
-    if (!result && buf.trim()) {
-      result = processInsightFrame(buf, onStatus, onLog);
-    }
-
-    if (!result) {
-      throw new Error("Generate stream ended without done event");
-    }
-
-    return result;
+      if (event === "log") {
+        onLog?.(JSON.parse(data) as InsightLogEvent);
+        return undefined;
+      }
+      if (event === "done") {
+        return JSON.parse(data) as Insight;
+      }
+      if (event === "error") {
+        throw new Error((JSON.parse(data) as { message: string }).message);
+      }
+      return undefined;
+    });
   })();
 
   return { abort: () => controller.abort(), done };
-}
-
-function processInsightFrames(
-  buf: string,
-  onStatus?: (phase: string) => void,
-  onLog?: (event: InsightLogEvent) => void,
-): { result?: Insight; remaining: string } {
-  let idx: number;
-  let start = 0;
-  while ((idx = buf.indexOf("\n\n", start)) !== -1) {
-    const frame = buf.slice(start, idx);
-    start = idx + 2;
-    const result = processInsightFrame(frame, onStatus, onLog);
-    if (result) {
-      return { result, remaining: buf.slice(start) };
-    }
-  }
-  return { remaining: buf.slice(start) };
-}
-
-function processInsightFrame(
-  frame: string,
-  onStatus?: (phase: string) => void,
-  onLog?: (event: InsightLogEvent) => void,
-): Insight | undefined {
-  let event = "";
-  const dataLines: string[] = [];
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event: ")) {
-      event = line.slice(7);
-    } else if (line.startsWith("data: ")) {
-      dataLines.push(line.slice(6));
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5));
-    }
-  }
-  const data = dataLines.join("\n");
-  if (!data) return undefined;
-
-  if (event === "status") {
-    const parsed = JSON.parse(data) as { phase: string };
-    onStatus?.(parsed.phase);
-  } else if (event === "log") {
-    const parsed = JSON.parse(data) as InsightLogEvent;
-    onLog?.(parsed);
-  } else if (event === "done") {
-    return JSON.parse(data) as Insight;
-  } else if (event === "error") {
-    const parsed = JSON.parse(data) as { message: string };
-    throw new Error(parsed.message);
-  }
-  return undefined;
 }
 
 /* Session Management */
@@ -1348,52 +1236,24 @@ async function readImportSSE(
   res: Response,
   cb?: ImportCallbacks,
 ): Promise<ImportStats> {
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  let result: ImportStats | null = null;
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-
-    // Process complete SSE frames (double newline delimited).
-    let idx: number;
-    while ((idx = buf.indexOf("\n\n")) !== -1) {
-      const frame = buf.slice(0, idx);
-      buf = buf.slice(idx + 2);
-
-      let event = "";
-      let data = "";
-      for (const line of frame.split("\n")) {
-        if (line.startsWith("event: ")) event = line.slice(7);
-        else if (line.startsWith("data: ")) data = line.slice(6);
-      }
-      if (!event || !data) continue;
-
-      const parsed = JSON.parse(data);
-      switch (event) {
-        case "progress":
-          cb?.onProgress?.(parsed as ImportStats);
-          break;
-        case "indexing":
-          cb?.onIndexing?.();
-          break;
-        case "done":
-          result = parsed as ImportStats;
-          break;
-        case "error":
-          throw new Error(
-            (parsed as { error?: string }).error
-            ?? "Import failed",
-          );
-      }
+  return readSSEStream(res.body!.getReader(), (event, data) => {
+    const parsed = JSON.parse(data);
+    switch (event) {
+      case "progress":
+        cb?.onProgress?.(parsed as ImportStats);
+        return undefined;
+      case "indexing":
+        cb?.onIndexing?.();
+        return undefined;
+      case "done":
+        return parsed as ImportStats;
+      case "error":
+        throw new Error(
+          (parsed as { error?: string }).error ?? "Import failed",
+        );
     }
-  }
-
-  if (!result) throw new Error("Import stream ended without result");
-  return result;
+    return undefined;
+  });
 }
 
 export async function importClaudeAI(

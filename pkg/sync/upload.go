@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +53,7 @@ func FileFromDiscovered(path, agent string, size, mtime int64) SyncFile {
 	}
 }
 
-func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile, onProgress ProgressFunc) (*UploadStats, error) {
+func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile, fsys fs.FS, onProgress ProgressFunc) (*UploadStats, error) {
 	hostname, _ := os.Hostname()
 
 	// Ensure host folder exists.
@@ -67,7 +68,7 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 
 	if len(st.All()) == 0 {
 		fmt.Println("First upload — uploading baseline bundle...")
-		n, err := uploadBaseline(t, hostname, baselinePath, files, cfg.Compression.Level, onProgress)
+		n, err := uploadBaseline(t, hostname, baselinePath, files, fsys, cfg.Compression.Level, onProgress)
 		if err != nil {
 			return nil, err
 		}
@@ -81,10 +82,10 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 
 	onProgress.Report("scanning", 0, 0, "")
 	fmt.Println("Scanning for changes...")
-	return uploadIncremental(t, incrPath, hostname, files, st, cfg.Compression.Level, onProgress)
+	return uploadIncremental(t, incrPath, hostname, files, st, fsys, cfg.Compression.Level, onProgress)
 }
 
-func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, level int, onProgress ProgressFunc) (int, error) {
+func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, fsys fs.FS, level int, onProgress ProgressFunc) (int, error) {
 	fmt.Printf("Packing %d files...\n", len(files))
 
 	sessionData := make(map[string][]byte)
@@ -94,7 +95,7 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 			fmt.Printf("  reading %d/%d...\n", i, len(files))
 			onProgress.Report("reading", i, len(files), "")
 		}
-		data, err := os.ReadFile(f.Path)
+		data, err := fs.ReadFile(fsys, strings.TrimPrefix(f.Path, "/"))
 		if err != nil {
 			continue
 		}
@@ -149,7 +150,7 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 	return len(files), nil
 }
 
-func uploadIncremental(t transport.Transport, incrPath, hostname string, files []SyncFile, st *state.Store, level int, onProgress ProgressFunc) (*UploadStats, error) {
+func uploadIncremental(t transport.Transport, incrPath, hostname string, files []SyncFile, st *state.Store, fsys fs.FS, level int, onProgress ProgressFunc) (*UploadStats, error) {
 	stats := &UploadStats{Total: len(files)}
 	processed := 0
 
@@ -164,7 +165,7 @@ func uploadIncremental(t transport.Transport, incrPath, hostname string, files [
 			continue
 		}
 
-		data, err := os.ReadFile(f.Path)
+		data, err := fs.ReadFile(fsys, strings.TrimPrefix(f.Path, "/"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  WARN: skip %s: %v\n", key, err)
 			stats.Failed++

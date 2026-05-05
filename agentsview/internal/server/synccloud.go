@@ -183,7 +183,7 @@ func (s *Server) handleSyncCloudUpload(w http.ResponseWriter, r *http.Request) {
 		files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 	}
 
-	stats, err := confluxsync.UploadChanged(tr, scCfg, st, files, func(phase string, current, total int, detail string) {
+	stats, err := confluxsync.UploadChanged(tr, scCfg, st, files, os.DirFS("/"), func(phase string, current, total int, detail string) {
 		sendCloudSyncProgress(stream, phase, current, total, detail)
 	})
 	if err != nil {

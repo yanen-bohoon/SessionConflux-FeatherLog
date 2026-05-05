@@ -160,7 +160,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			fmt.Println("--- Upload ---")
 			avCfg := avcli.MustLoadConfig(cmd)
 			files := avcli.GetChangedFiles(avCfg, time.Time{})
-			stats, err := sync.UploadChanged(t, cfg, st, files)
+			stats, err := sync.UploadChanged(t, cfg, st, files, os.DirFS("/"), nil)
 			if err != nil {
 				return fmt.Errorf("upload: %w", err)
 			}
@@ -175,7 +175,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			findAgentDir := func(agent string) string {
 				return avcli.ResolveAgentDir(avcli.MustLoadConfig(cmd), agent)
 			}
-			n, err := sync.DownloadAllSessions(t, findAgentDir)
+			n, err := sync.DownloadAllSessions(t, findAgentDir, nil)
 			if err != nil {
 				return fmt.Errorf("download: %w", err)
 			}
@@ -533,7 +533,7 @@ func runUpload(cmd *cobra.Command, args []string) {
 	avCfg := avcli.MustLoadConfig(cmd)
 	files := avcli.GetChangedFiles(avCfg, time.Time{})
 
-	stats, err := sync.UploadChanged(t, cfg, st, files)
+	stats, err := sync.UploadChanged(t, cfg, st, files, os.DirFS("/"), nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Upload failed: %v\n", err)
 		os.Exit(1)
@@ -568,7 +568,7 @@ func runDownload(cmd *cobra.Command, args []string) {
 		findAgentDir := func(agent string) string {
 			return avcli.ResolveAgentDir(avCfg, agent)
 		}
-		n, err := sync.DownloadAllSessions(t, findAgentDir)
+		n, err := sync.DownloadAllSessions(t, findAgentDir, nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 			os.Exit(1)

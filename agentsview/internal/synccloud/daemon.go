@@ -98,7 +98,7 @@ func runSync(cfg *config.Config) {
 			files = append(files, confluxsync.FileFromDiscovered(f.Path, string(f.Agent), info.Size(), info.ModTime().UnixNano()))
 		}
 
-		stats, err := confluxsync.UploadChanged(tr, scCfg, st, files)
+		stats, err := confluxsync.UploadChanged(tr, scCfg, st, files, os.DirFS("/"), nil)
 		if err != nil {
 			log.Printf("cloud sync daemon: upload: %v", err)
 		} else {
@@ -116,7 +116,7 @@ func runSync(cfg *config.Config) {
 			}
 			return ""
 		}
-		n, err := confluxsync.DownloadAllSessions(tr, findAgentDir)
+		n, err := confluxsync.DownloadAllSessions(tr, findAgentDir, nil)
 		if err != nil {
 			log.Printf("cloud sync daemon: download: %v", err)
 		} else {
