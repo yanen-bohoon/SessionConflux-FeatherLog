@@ -412,7 +412,7 @@ func printVersion(w io.Writer) {
 }
 
 func writeRootHelp(w io.Writer, root *cobra.Command) {
-	fmt.Fprintf(w, "agentsview %s - local web viewer for AI agent sessions\n\n", version)
+	fmt.Fprintf(w, "session-conflux %s - local web viewer for AI agent sessions\n\n", version)
 	fmt.Fprintln(w, "Syncs Claude Code, Codex, Copilot CLI, Gemini CLI, OpenCode,")
 	fmt.Fprintln(w, "Cursor, and Amp session data into SQLite, serves analytics,")
 	fmt.Fprintln(w, "and exposes session browser via local web UI.")
@@ -432,25 +432,25 @@ func writeRootHelp(w io.Writer, root *cobra.Command) {
 	fmt.Fprintln(w, "  CURSOR_PROJECTS_DIR     Cursor projects directory")
 	fmt.Fprintln(w, "  IFLOW_DIR               iFlow projects directory")
 	fmt.Fprintln(w, "  AMP_DIR                 Amp threads directory")
-	fmt.Fprintln(w, "  AGENTSVIEW_DATA_DIR     Data directory (database, config)")
-	fmt.Fprintln(w, "  AGENTSVIEW_PG_URL       PostgreSQL connection URL for sync")
-	fmt.Fprintln(w, "  AGENTSVIEW_PG_MACHINE   Machine name for PG sync")
-	fmt.Fprintln(w, "  AGENTSVIEW_PG_SCHEMA    PG schema name (default \"agentsview\")")
+	fmt.Fprintln(w, "  SESSIONCONFLUX_DATA_DIR Data directory (database, config)")
+	fmt.Fprintln(w, "  SESSIONCONFLUX_PG_URL   PostgreSQL connection URL for sync")
+	fmt.Fprintln(w, "  SESSIONCONFLUX_PG_MACHINE Machine name for PG sync")
+	fmt.Fprintln(w, "  SESSIONCONFLUX_PG_SCHEMA PG schema name (default \"agentsview\")")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Watcher excludes:")
-	fmt.Fprintln(w, "  Add \"watch_exclude_patterns\" to ~/.agentsview/config.toml")
+	fmt.Fprintln(w, "  Add \"watch_exclude_patterns\" to ~/.session-conflux/config.toml")
 	fmt.Fprintln(w, "  to skip directory names/patterns while recursively watching roots.")
 	fmt.Fprintln(w, "  Example:")
 	fmt.Fprintln(w, "  watch_exclude_patterns = [\".git\", \"node_modules\", \".next\", \"dist\"]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Multiple directories:")
-	fmt.Fprintln(w, "  Add arrays to ~/.agentsview/config.toml to scan multiple locations:")
+	fmt.Fprintln(w, "  Add arrays to ~/.session-conflux/config.toml to scan multiple locations:")
 	fmt.Fprintln(w, "  claude_project_dirs = [\"/path/one\", \"/path/two\"]")
 	fmt.Fprintln(w, "  codex_sessions_dirs = [\"/codex/a\", \"/codex/b\"]")
 	fmt.Fprintln(w, "  When set, these override default directory. Environment variables")
 	fmt.Fprintln(w, "  override config file arrays.")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Data stored in ~/.agentsview/ by default.")
+	fmt.Fprintln(w, "Data stored in ~/.session-conflux/ by default.")
 }
 
 func normalizeFlagHelpWidth(width int) int {

@@ -198,7 +198,15 @@ func Default() (Config, error) {
 			"determining home directory: %w", err,
 		)
 	}
-	dataDir := filepath.Join(home, ".agentsview")
+	dataDir := filepath.Join(home, ".session-conflux")
+
+	// Fallback to .agentsview for backward compatibility.
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		oldDir := filepath.Join(home, ".agentsview")
+		if _, err := os.Stat(oldDir); err == nil {
+			dataDir = oldDir
+		}
+	}
 
 	agentDirs := make(map[parser.AgentType][]string)
 	agentDirSource := make(map[parser.AgentType]dirSource)
@@ -703,9 +711,12 @@ func (c *Config) writeConfigMap(m map[string]any) error {
 }
 
 // dataDirFromEnv returns the data directory from the environment, preferring
-// AGENTSVIEW_DATA_DIR and falling back to the legacy AGENT_VIEWER_DATA_DIR.
-// Returns "" when neither is set.
+// SESSIONCONFLUX_DATA_DIR, then AGENTSVIEW_DATA_DIR, and falling back to the
+// legacy AGENT_VIEWER_DATA_DIR. Returns "" when neither is set.
 func dataDirFromEnv() string {
+	if v := os.Getenv("SESSIONCONFLUX_DATA_DIR"); v != "" {
+		return v
+	}
 	if v := os.Getenv("AGENTSVIEW_DATA_DIR"); v != "" {
 		return v
 	}
@@ -722,16 +733,24 @@ func (c *Config) loadEnv() {
 	if v := dataDirFromEnv(); v != "" {
 		c.DataDir = v
 	}
-	if v := os.Getenv("AGENTSVIEW_PG_URL"); v != "" {
+	if v := os.Getenv("SESSIONCONFLUX_PG_URL"); v != "" {
+		c.PG.URL = v
+	} else if v := os.Getenv("AGENTSVIEW_PG_URL"); v != "" {
 		c.PG.URL = v
 	}
-	if v := os.Getenv("AGENTSVIEW_PG_SCHEMA"); v != "" {
+	if v := os.Getenv("SESSIONCONFLUX_PG_SCHEMA"); v != "" {
+		c.PG.Schema = v
+	} else if v := os.Getenv("AGENTSVIEW_PG_SCHEMA"); v != "" {
 		c.PG.Schema = v
 	}
-	if v := os.Getenv("AGENTSVIEW_PG_MACHINE"); v != "" {
+	if v := os.Getenv("SESSIONCONFLUX_PG_MACHINE"); v != "" {
+		c.PG.MachineName = v
+	} else if v := os.Getenv("AGENTSVIEW_PG_MACHINE"); v != "" {
 		c.PG.MachineName = v
 	}
-	if v := os.Getenv("AGENTSVIEW_DISABLE_UPDATE_CHECK"); v != "" {
+	if v := os.Getenv("SESSIONCONFLUX_DISABLE_UPDATE_CHECK"); v != "" {
+		c.DisableUpdateCheck = v == "1" || v == "true"
+	} else if v := os.Getenv("AGENTSVIEW_DISABLE_UPDATE_CHECK"); v != "" {
 		c.DisableUpdateCheck = v == "1" || v == "true"
 	}
 }
