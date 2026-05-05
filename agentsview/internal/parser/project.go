@@ -734,6 +734,7 @@ func isDefaultBranchToken(branch string) bool {
 func NeedsProjectReparse(project string) bool {
 	bad := []string{
 		"_Users", "_home", "_private", "_tmp", "_var",
+		"Users-", "home-", "private-", "tmp-", "var-",
 	}
 	for _, prefix := range bad {
 		if strings.HasPrefix(project, prefix) {
@@ -741,5 +742,7 @@ func NeedsProjectReparse(project string) bool {
 		}
 	}
 	return strings.Contains(project, "_var_folders_") ||
-		strings.Contains(project, "_var_tmp_")
+		strings.Contains(project, "_var_tmp_") ||
+		strings.Contains(project, "-var-folders-") ||
+		strings.Contains(project, "-var-tmp-")
 }

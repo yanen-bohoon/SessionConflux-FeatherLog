@@ -266,10 +266,12 @@ func parseCodeBuddySession(path, project, machine string, agent AgentType) (*Par
 		parentSessionId = string(agent) + ":" + filepath.Base(parentDir)
 	}
 
-	if project == "" {
-		project = ExtractProjectFromCwd(cwd)
+	if cwd != "" {
+		if proj := ExtractProjectFromCwd(cwd); proj != "" {
+			project = proj
+		}
 	}
-	if project == "" {
+	if project == "" || NeedsProjectReparse(project) {
 		project = "unknown"
 	}
 
@@ -339,7 +341,7 @@ func discoverCodeBuddyProjects(projectsDir string, agent AgentType) []Discovered
 			}
 			files = append(files, DiscoveredFile{
 				Path:    filepath.Join(projDir, name),
-				Project: entry.Name(),
+				Project: GetProjectName(entry.Name()),
 				Agent:   agent,
 			})
 		}
@@ -369,7 +371,7 @@ func discoverCodeBuddyProjects(projectsDir string, agent AgentType) []Discovered
 					Path: filepath.Join(
 						subagentsDir, name,
 					),
-					Project: entry.Name(),
+					Project: GetProjectName(entry.Name()),
 					Agent:   agent,
 				})
 			}
