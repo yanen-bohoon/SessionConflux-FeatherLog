@@ -52,6 +52,7 @@ jobs:
           GOOS: linux
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
+          GOTOOLCHAIN: auto
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           COMMIT=${GITHUB_SHA::8}
@@ -130,6 +131,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.goos == 'darwin' && '11.0' || '' }}
+          GOTOOLCHAIN: auto
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           COMMIT=${GITHUB_SHA::8}
