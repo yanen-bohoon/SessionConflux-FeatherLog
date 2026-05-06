@@ -64,7 +64,7 @@ jobs:
             -o dist/session-conflux ./cmd/session-conflux
 
           # Smoke test
-          ./dist/session-conflux --version
+          ./dist/session-conflux --help
 
           cd dist
           ARCHIVE="session-conflux_${VERSION}_linux_${{ matrix.goarch }}.tar.gz"
@@ -146,7 +146,7 @@ jobs:
 
           # Smoke test (skip cross-compiled darwin/amd64 on ARM runner)
           if [ "$GOARCH" = "$(go env GOHOSTARCH)" ]; then
-            ./dist/session-conflux${EXT} --version
+            ./dist/session-conflux${EXT} --help
           fi
 
           # Verify macOS deployment target
