@@ -246,6 +246,9 @@
               {#if m.has_incremental}
                 <span class="tag incr-tag">incremental</span>
               {/if}
+              {#if m.has_sessions}
+                <span class="tag sessions-tag">{t("settings.sync_cloud.has_sessions")}</span>
+              {/if}
             </div>
           {/each}
         </div>

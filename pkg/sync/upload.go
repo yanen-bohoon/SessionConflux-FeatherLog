@@ -53,6 +53,22 @@ func FileFromDiscovered(path, agent string, size, mtime int64) SyncFile {
 	}
 }
 
+// remoteHasBaseline returns true when the baseline directory on the remote
+// already contains at least one file. Used to avoid re-uploading a full
+// baseline when local state is absent (e.g. after reinstall).
+func remoteHasBaseline(t transport.Transport, baselinePath string) bool {
+	entries, err := t.ListFiles(baselinePath)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir {
+			return true
+		}
+	}
+	return false
+}
+
 func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, files []SyncFile, fsys fs.FS, onProgress ProgressFunc) (*UploadStats, error) {
 	hostname, _ := os.Hostname()
 
@@ -66,9 +82,9 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 		return nil, fmt.Errorf("baseline folder: %w", err)
 	}
 
-	if len(st.All()) == 0 {
+	if len(st.All()) == 0 && !remoteHasBaseline(t, baselinePath) {
 		fmt.Println("First upload — uploading baseline bundle...")
-		n, err := uploadBaseline(t, hostname, baselinePath, files, fsys, cfg.Compression.Level, onProgress)
+		n, err := uploadBaseline(t, hostname, baselinePath, files, st, fsys, cfg.Compression.Level, onProgress)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +101,7 @@ func UploadChanged(t transport.Transport, cfg *config.Config, st *state.Store, f
 	return uploadIncremental(t, incrPath, hostname, files, st, fsys, cfg.Compression.Level, onProgress)
 }
 
-func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, fsys fs.FS, level int, onProgress ProgressFunc) (int, error) {
+func uploadBaseline(t transport.Transport, hostname, baselinePath string, files []SyncFile, st *state.Store, fsys fs.FS, level int, onProgress ProgressFunc) (int, error) {
 	fmt.Printf("Packing %d files...\n", len(files))
 
 	sessionData := make(map[string][]byte)
@@ -145,6 +161,17 @@ func uploadBaseline(t transport.Transport, hostname, baselinePath string, files 
 			}
 			fmt.Printf("  part %d/%d: %d KB\n", i+1, parts, (end-start)/1024)
 		}
+	}
+
+	// Record every file in local state so future uploads use incremental.
+	now := time.Now().UTC()
+	for _, f := range files {
+		sessionID := strings.TrimSuffix(filepath.Base(f.Path), ".jsonl")
+		key := filepath.Join(hostname, f.Agent, sessionID)
+		st.MarkUploaded(key, f.Size, f.Mtime, "", now)
+	}
+	if err := st.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "  WARN: save state after baseline: %v\n", err)
 	}
 
 	return len(files), nil

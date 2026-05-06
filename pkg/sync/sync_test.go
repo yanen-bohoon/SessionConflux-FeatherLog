@@ -332,6 +332,52 @@ func TestUploadChanged_Baseline(t *testing.T) {
 	if _, ok := tr.files[hostname+"/baseline/"+bundle.BundleFileName]; !ok {
 		t.Error("baseline bundle not uploaded")
 	}
+
+	// Baseline should have saved state for future incremental uploads.
+	if entries := st.All(); len(entries) == 0 {
+		t.Error("state should have entries after baseline upload")
+	}
+}
+
+func TestUploadChanged_RemoteBaselineExists(t *testing.T) {
+	// When local state is empty but the remote already has a baseline
+	// (e.g. reinstall), avoid a full re-baseline and go incremental.
+	tmpDir := t.TempDir()
+	relPath := "sessions/claude/sess-b1.jsonl"
+	absPath := filepath.Join(tmpDir, relPath)
+	os.MkdirAll(filepath.Dir(absPath), 0755)
+	os.WriteFile(absPath, []byte(`{"messages":[{"role":"user","content":"new session"}]}`+"\n"), 0644)
+
+	hostname, _ := os.Hostname()
+	fsys := os.DirFS(tmpDir)
+
+	cfg := &config.Config{}
+	cfg.Compression.Level = 3
+
+	st, _ := state.LoadFrom(filepath.Join(tmpDir, "state.json"))
+
+	tr := newMockTransport()
+	// Simulate an existing baseline bundle on the remote.
+	tr.files[hostname+"/baseline/"+bundle.BundleFileName] = []byte("existing-archive")
+	// But local state is empty (fresh reinstall).
+
+	files := []SyncFile{
+		{Path: relPath, Agent: "claude", Size: 100, Mtime: 99999},
+	}
+
+	stats, err := UploadChanged(tr, cfg, st, files, fsys, nil)
+	if err != nil {
+		t.Fatalf("UploadChanged: %v", err)
+	}
+	if stats.Total == 0 {
+		t.Error("expected at least one file")
+	}
+
+	// Must have gone incremental, not baseline.
+	incrKey := hostname + "/incremental/claude/sess-b1.jsonl.zst"
+	if _, ok := tr.files[incrKey]; !ok {
+		t.Error("expected incremental upload, but file not found at", incrKey)
+	}
 }
 
 func TestUploadChanged_Incremental(t *testing.T) {

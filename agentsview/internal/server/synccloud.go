@@ -53,10 +53,27 @@ type cloudMachineInfo struct {
 	Name           string `json:"name"`
 	HasBaseline    bool   `json:"has_baseline"`
 	HasIncremental bool   `json:"has_incremental"`
+	HasSessions    bool   `json:"has_sessions"`
 }
 
-// listCloudMachines enumerates remote machines concurrently, checking only
-// whether baseline/incremental directories exist (2 levels deep instead of 4).
+// dirHasFiles returns true when path contains at least one non-directory
+// entry. Stops scanning at the first file — no full enumeration.
+func dirHasFiles(tr confluxtransport.Transport, path string) bool {
+	entries, err := tr.ListFiles(path)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir {
+			return true
+		}
+	}
+	return false
+}
+
+// listCloudMachines enumerates remote machines concurrently, checking
+// baseline/incremental directory existence and whether either contains
+// session files.
 func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
 	hosts, err := tr.ListFiles("")
 	if err != nil {
@@ -67,6 +84,7 @@ func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
 		name           string
 		hasBaseline    bool
 		hasIncremental bool
+		hasSessions    bool
 	}
 
 	var wg sync.WaitGroup
@@ -92,8 +110,22 @@ func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
 				switch e.Name {
 				case "baseline":
 					r.hasBaseline = true
+					if dirHasFiles(tr, h.Name+"/baseline") {
+						r.hasSessions = true
+					}
 				case "incremental":
 					r.hasIncremental = true
+					if !r.hasSessions {
+						agents, err := tr.ListFiles(h.Name + "/incremental")
+						if err == nil {
+							for _, a := range agents {
+								if a.IsDir && dirHasFiles(tr, h.Name+"/incremental/"+a.Name) {
+									r.hasSessions = true
+									break
+								}
+							}
+						}
+					}
 				}
 			}
 			ch <- r
@@ -111,6 +143,7 @@ func listCloudMachines(tr confluxtransport.Transport) []cloudMachineInfo {
 			Name:           r.name,
 			HasBaseline:    r.hasBaseline,
 			HasIncremental: r.hasIncremental,
+			HasSessions:    r.hasSessions,
 		})
 	}
 	return machines
@@ -345,6 +378,7 @@ func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 		name           string
 		hasBaseline    bool
 		hasIncremental bool
+		hasSessions    bool
 	}
 
 	var wg sync.WaitGroup
@@ -370,8 +404,22 @@ func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 				switch e.Name {
 				case "baseline":
 					r.hasBaseline = true
+					if dirHasFiles(tr, h.Name+"/baseline") {
+						r.hasSessions = true
+					}
 				case "incremental":
 					r.hasIncremental = true
+					if !r.hasSessions {
+						agents, err := tr.ListFiles(h.Name + "/incremental")
+						if err == nil {
+							for _, a := range agents {
+								if a.IsDir && dirHasFiles(tr, h.Name+"/incremental/"+a.Name) {
+									r.hasSessions = true
+									break
+								}
+							}
+						}
+					}
 				}
 			}
 			ch <- r
@@ -389,6 +437,7 @@ func (s *Server) handleSyncCloudRemote(w http.ResponseWriter, r *http.Request) {
 			Name:           r.name,
 			HasBaseline:    r.hasBaseline,
 			HasIncremental: r.hasIncremental,
+			HasSessions:    r.hasSessions,
 		}
 		machines = append(machines, m)
 		stream.SendJSON("machine", m)

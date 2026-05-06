@@ -776,6 +776,7 @@ export const zh: Record<string, string> = {
   'settings.sync_cloud.test_failed': '连接测试失败',
   'settings.sync_cloud.remote_machines': '远端已同步的机器:',
   'settings.sync_cloud.no_machines': '远端尚无同步数据',
+  'settings.sync_cloud.has_sessions': '有数据',
 
   /* Cloud Sync */
   'nav.cloud_sync': '云同步',
@@ -789,6 +790,7 @@ export const zh: Record<string, string> = {
   'modal.cloud_sync.upload': '上传',
   'modal.cloud_sync.download': '下载',
   'modal.cloud_sync.syncing': '同步中...',
+  'modal.cloud_sync.has_sessions': '有数据',
   'modal.cloud_sync.done': '同步完成',
   'modal.cloud_sync.failed': '同步失败',
   'modal.cloud_sync.total': '总计',

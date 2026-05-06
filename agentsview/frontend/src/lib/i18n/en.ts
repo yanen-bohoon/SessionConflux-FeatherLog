@@ -772,6 +772,7 @@ export const en: Record<string, string> = {
   'settings.sync_cloud.test_failed': 'Connection test failed',
   'settings.sync_cloud.remote_machines': 'Remote machines:',
   'settings.sync_cloud.no_machines': 'No data on remote yet',
+  'settings.sync_cloud.has_sessions': 'has data',
 
   /* Cloud Sync */
   'nav.cloud_sync': 'Cloud Sync',
@@ -785,6 +786,7 @@ export const en: Record<string, string> = {
   'modal.cloud_sync.upload': 'Upload',
   'modal.cloud_sync.download': 'Download',
   'modal.cloud_sync.syncing': 'Syncing...',
+  'modal.cloud_sync.has_sessions': 'has data',
   'modal.cloud_sync.done': 'Sync complete',
   'modal.cloud_sync.failed': 'Sync failed',
   'modal.cloud_sync.total': 'Total',

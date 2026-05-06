@@ -51,22 +51,7 @@
         progressDetail = ev.detail;
         break;
       case "done":
-        cloudSync.refresh();
         stats = ev.stats;
-        running = false;
-        abortFn = null;
-        if (deletingHost) {
-          deletingHost = "";
-          confirmDelete = "";
-          result = { message: t("modal.cloud_sync.done"), isError: false };
-        } else if (downloadingHost) {
-          downloadingHost = "";
-          result = { message: t("modal.cloud_sync.done"), isError: false };
-          onsynced();
-        } else {
-          result = { message: t("modal.cloud_sync.done"), isError: false };
-          onsynced();
-        }
         break;
       case "error":
         errorMessage = ev.message;
@@ -79,18 +64,35 @@
     }
   }
 
-  async function startOperation(fn: () => Promise<void>) {
+  async function startOperation(fn: () => Promise<void>, opts?: { upload?: boolean }) {
     running = true;
     result = null;
     errorMessage = "";
     stats = null;
     try {
       await fn();
+      await cloudSync.refresh();
+      running = false;
+      abortFn = null;
+      if (deletingHost) {
+        deletingHost = "";
+        confirmDelete = "";
+        result = { message: t("modal.cloud_sync.done"), isError: false };
+      } else if (downloadingHost) {
+        downloadingHost = "";
+        result = { message: t("modal.cloud_sync.done"), isError: false };
+        onsynced();
+      } else {
+        result = { message: t("modal.cloud_sync.done"), isError: false };
+        if (opts?.upload) onsynced();
+      }
     } catch {
       if (running) {
         running = false;
         abortFn = null;
         result = { message: errorMessage || t("modal.cloud_sync.failed"), isError: true };
+        downloadingHost = "";
+        deletingHost = "";
       }
     }
   }
@@ -100,7 +102,7 @@
       const stream = uploadCloudSync(handleEvent);
       abortFn = () => stream.abort();
       await stream.done;
-    });
+    }, { upload: true });
   }
 
   function handleDownload(hostname?: string) {
@@ -237,6 +239,9 @@
                       {/if}
                       {#if m.has_incremental}
                         <span class="tag inc-tag">incremental</span>
+                      {/if}
+                      {#if m.has_sessions}
+                        <span class="tag sessions-tag">{t("modal.cloud_sync.has_sessions")}</span>
                       {/if}
                     </div>
                   </div>
@@ -561,6 +566,10 @@
   .inc-tag {
     background: rgba(128, 128, 128, 0.12);
     color: var(--text-muted);
+  }
+  .sessions-tag {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--accent-green, #22c55e);
   }
   .machine-actions {
     display: flex;

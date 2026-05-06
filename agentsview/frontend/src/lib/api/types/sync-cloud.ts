@@ -55,4 +55,5 @@ export interface CloudSyncMachine {
   name: string;
   has_baseline: boolean;
   has_incremental: boolean;
+  has_sessions: boolean;
 }
